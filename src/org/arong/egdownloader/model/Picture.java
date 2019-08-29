@@ -11,12 +11,17 @@ public class Picture {
 	private String num;//序号
 	private String name;//真实名称
 	private String url;//浏览地址
+	private String oldurl;//旧版本地址
 	private String realUrl;//真实下载地址
 	private int size;//大小
+	private String ppi;//分辨率
 	private String time;//下载时间
 	private boolean saveAsName = true;//是否以真实名称保存，否则以人物名+num保存
 	private boolean isCompleted;//是否下载完成
 	private boolean isRunning;//是否正在下载
+	
+	private long totalSize;
+	
 	public String getNum() {
 		return num;
 	}
@@ -90,5 +95,23 @@ public class Picture {
 	}
 	public void setTid(String tid) {
 		this.tid = tid;
+	}
+	public String getPpi() {
+		return ppi;
+	}
+	public void setPpi(String ppi) {
+		this.ppi = ppi;
+	}
+	public long getTotalSize() {
+		return totalSize;
+	}
+	public void setTotalSize(long totalSize) {
+		this.totalSize = totalSize;
+	}
+	public String getOldurl() {
+		return oldurl;
+	}
+	public void setOldurl(String oldurl) {
+		this.oldurl = oldurl;
 	}
 }

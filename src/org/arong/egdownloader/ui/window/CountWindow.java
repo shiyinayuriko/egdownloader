@@ -6,17 +6,27 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JDialog;
 import javax.swing.JTextPane;
 
+import org.apache.commons.lang.StringUtils;
 import org.arong.egdownloader.model.Setting;
 import org.arong.egdownloader.model.Task;
 import org.arong.egdownloader.model.TaskStatus;
 import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.IconManager;
+import org.arong.egdownloader.ui.panel.TaskTagsPanel;
 import org.arong.egdownloader.ui.swing.AJTextPane;
+import org.arong.egdownloader.ui.work.CommonSwingWorker;
+import org.arong.util.FileUtil2;
+import org.arong.util.jdbc.JdbcSqlExecutor;
+import org.arong.util.jdbc.JdbcUtil;
 /**
  * 任务统计面板
  * @author dipoo
@@ -27,10 +37,11 @@ public class CountWindow extends JDialog {
 	private static final long serialVersionUID = 344119118958307328L;
 	public JTextPane htmlPanel;
 	EgDownloaderWindow window;
+	public CommonSwingWorker worker = null;
 	public CountWindow(EgDownloaderWindow window){
 		this.window = window;
 		// 设置主窗口
-		this.setSize(700, 250);
+		this.setSize(700, 350);
 		this.setIconImage(IconManager.getIcon("count").getImage());
 		this.setTitle("统计");
 		this.setVisible(true);
@@ -52,13 +63,28 @@ public class CountWindow extends JDialog {
 			}
 		});
 
-		htmlPanel = new AJTextPane(transferHtml(), Color.BLUE);
+		htmlPanel = new AJTextPane("", Color.BLUE);
 		this.getContentPane().add(htmlPanel);
+		showCountPanel();
 	}
 	
 	public void showCountPanel(){
-		htmlPanel.setText(transferHtml());
-		this.setVisible(true);
+		if(worker != null && !worker.isDone()){
+			this.setVisible(true);
+			//System.out.println("请等待...");
+			return;
+		}
+		final CountWindow this_ = this;
+		worker = new CommonSwingWorker(new Runnable() {
+			public void run() {
+				this_.setVisible(true);
+				htmlPanel.setText("<br><br><center>统计中...</center>");
+				htmlPanel.setText(transferHtml());
+				worker = null;
+			}
+		});
+		worker.execute();
+		
 	}
 	
 	public String transferHtml(){
@@ -79,31 +105,79 @@ public class CountWindow extends JDialog {
 		double p_completionRate = 0.0;
 		String lastCreateTime = setting.getLastCreateTime();
 		String lastDownloadTime = setting.getLastDownloadTime();
+		long totalSize = 0;
+		long downSize = 0;
+		Map<String, Integer> tagMap = new HashMap<String, Integer>();
 		for(Task task : tasks){
 			if(task.getStatus() == TaskStatus.COMPLETED){
 				t_complete ++;
 			}
 			p_count += task.getTotal();
 			p_complete += task.getCurrent();
+			totalSize += parseLongSize(task.getSize());
+			if(StringUtils.isNotBlank(task.getTags())){
+				String[] arr = task.getTags().split(";");
+				for(String tag : arr){
+					if(StringUtils.isNotBlank(tag.trim())){
+						tagMap.put(tag, 0);
+					}
+				}
+			}
 		}
+		String sql = "select sum(size) as totalsize from picture where size is not null and size <> ''";
+		try {
+			downSize = JdbcSqlExecutor.getInstance().executeQuery(sql, JdbcUtil.getConnection(), new JdbcSqlExecutor.CallBack<Long>(){
+				public Long action(ResultSet rs) throws SQLException {
+					if(rs.next()){
+						return rs.getLong("totalsize");
+					}
+					return 0L;
+				}});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 		t_uncomplete = t_count - t_complete;
 		p_uncomplete = p_count - p_complete;
 		t_completionRate = new BigDecimal(Double.parseDouble(t_complete + "") * 100 / Double.parseDouble(t_count + "")).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
 		p_completionRate = new BigDecimal(Double.parseDouble(p_complete + "") * 100 / Double.parseDouble(p_count + "")).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
 		
-		String s = ComponentConst.countHtml;
-		s = s.replace("@t_count", t_count + "").
-			replace("@t_historyCount", t_historyCount + "").
-			replace("@t_complete", t_complete + "").
-			replace("@t_uncomplete", t_uncomplete + "").
-			replace("@p_count", p_count + "").
-			replace("@p_historyCount", p_historyCount + "").
-			replace("@p_complete", p_complete + "").
-			replace("@p_uncomplete", p_uncomplete + "").
-			replace("@t_completionRate", t_completionRate + "%").
-			replace("@p_completionRate", p_completionRate + "%").
-			replace("@lastCreateTime", lastCreateTime == null ? "" : lastCreateTime).
-			replace("@lastDownloadTime", lastDownloadTime == null ? "" : lastDownloadTime);
+		String s = String.format(ComponentConst.countHtml, t_count, t_historyCount, t_complete, t_uncomplete, p_count, 
+				p_historyCount, p_complete, p_uncomplete,t_completionRate, p_completionRate, FileUtil2.showSizeStr(totalSize), FileUtil2.showSizeStr(downSize),
+				TaskTagsPanel.tagscnMap == null ? 0 : TaskTagsPanel.tagscnMap.size(), tagMap.size(),
+				lastCreateTime == null ? "" : lastCreateTime, lastDownloadTime == null ? "" : lastDownloadTime);
+		tagMap = null;
+		
+		/*Component[] comps = window.taskImagePanel.getComponents();
+		AJLabel l;int count = 0;
+		for(int i = 0; i < comps.length; i ++){
+			l = (AJLabel) ((JPanel)comps[i]).getComponent(0);
+			if(l.getImage() != null && l.getImage() != IconManager.getIcon("init")){
+				count ++;
+			}
+		}
+		System.out.println(count);*/
+		
+		return s;
+	}
+	
+	private long parseLongSize(String size){
+		long s = 0;
+		if(StringUtils.isNotBlank(size)){
+			try{
+				if(size.contains("G")){
+					s += ((Double)Double.parseDouble(size.substring(0, size.indexOf("G")))).longValue() * 1024 * 1024 * 1024;
+				}else if(size.contains("M")){
+					s += ((Double)Double.parseDouble(size.substring(0, size.indexOf("M")))).longValue() * 1024 * 1024;
+				}else if(size.contains("K")){
+					s += ((Double)Double.parseDouble(size.substring(0, size.indexOf("K")))).longValue() * 1024;
+				}else if(size.contains("B")){
+					s += ((Double)Double.parseDouble(size.substring(0, size.indexOf("B")))).longValue();
+				}
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+		}
 		return s;
 	}
 }

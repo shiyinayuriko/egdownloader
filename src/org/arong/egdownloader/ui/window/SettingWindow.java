@@ -40,7 +40,7 @@ import org.arong.egdownloader.ui.swing.AJTextField;
 import org.arong.egdownloader.ui.swing.AJTextPane;
 import org.arong.egdownloader.ui.work.UpdateScriptWorker;
 import org.arong.egdownloader.ui.work.interfaces.IListenerTask;
-import org.arong.util.FileUtil;
+import org.arong.util.FileUtil2;
 /**
  * 配置窗口
  * @author 阿荣
@@ -67,7 +67,13 @@ public class SettingWindow extends JFrame{
 		public JCheckBox autoDownloadBox;
 		JLabel downloadOriginalLabel;
 		public JCheckBox downloadOriginalBox;
+		JLabel showAsSubnameLabel;
+		public JCheckBox showAsSubnameBox;
+		JLabel tagTranslateLabel;
+		public JCheckBox tagTranslateBox;
 		JLabel maxThreadLabel;
+		public JCheckBox saveDirAsSubnameBox;
+		JLabel saveDirAsSubnameLabel;
 		public JTextField maxThreadField;
 		JLabel loginUrlLabel;
 		public JTextField loginUrlField;
@@ -103,7 +109,8 @@ public class SettingWindow extends JFrame{
 		public JLabel proxyTypeLabel;
 		public ButtonGroup proxyTypeButtonGroup;
 		public JRadioButton httpRadioButton;
-//		public JRadioButton socksRadioButton;
+		public JRadioButton socksRadioButton;
+		public JRadioButton ieRadioButton;
 		public JLabel proxyIpLabel;
 		public JTextField proxyIpField;
 		public JLabel proxyPortLabel;
@@ -171,9 +178,9 @@ public class SettingWindow extends JFrame{
 			openDirButton = new AJButton("打开", IconManager.getIcon("folder"), new OperaBtnMouseListener(mainWindow, MouseAction.CLICK, new IListenerTask() {
 				public void doWork(Window window, MouseEvent e) {
 					try {
-						String path = ComponentConst.getSavePathPreffix() + saveDirField.getText();
+						String path = saveDirField.getText();
 						File f = new File(path);
-						FileUtil.ifNotExistsThenCreate(f);
+						FileUtil2.ifNotExistsThenCreate(f);
 						Desktop.getDesktop().open(f);
 					} catch (Exception e1) {
 						e1.printStackTrace();
@@ -181,7 +188,6 @@ public class SettingWindow extends JFrame{
 					}
 				}
 			}), 570, 30, 60, 30);
-			//当存在原图时，下载原图http://exhentai.org/s/72aa78ff00/913125-7
 			saveAsNameLabel = new AJLabel("以真实名称保存：", labelColor, 25, 70, 100, 30);
 			saveAsNameBox = new JCheckBox("", setting.isSaveAsName());
 			saveAsNameBox.setBounds(118, 70, 30, 30);
@@ -191,17 +197,30 @@ public class SettingWindow extends JFrame{
 			downloadOriginalLabel = new AJLabel("下载原图：", labelColor, 400, 70, 100, 30);
 			downloadOriginalBox = new JCheckBox("", setting.isDownloadOriginal());
 			downloadOriginalBox.setBounds(460, 70, 30, 30);
-			maxThreadLabel = new AJLabel("最多开启任务数：", labelColor, 25, 110, 100, 30);
-			maxThreadField = new AJTextField(setting.getMaxThread() + "", "", 125, 110, 60, 30);
-			loginUrlLabel = new AJLabel("登录地址：", labelColor, 25, 150, 100, 30);
-			loginUrlField = new AJTextField(setting.getLoginUrl(), "", 125, 150, 360, 30);
-			cookieLabel = new AJLabel("登录信息：", labelColor, 25, 190, 100, 30);
+			saveDirAsSubnameLabel = new AJLabel("子标题作为目录：", labelColor, 25, 110, 100, 30);
+			saveDirAsSubnameBox = new JCheckBox("", setting.isSaveDirAsSubname());
+			saveDirAsSubnameBox.setBounds(118, 110, 30, 30);
+			showAsSubnameLabel = new AJLabel("列表子标题展示：", labelColor, 200, 110, 100, 30);
+			showAsSubnameBox = new JCheckBox("", setting.isShowAsSubname());
+			showAsSubnameBox.setBounds(290, 110, 30, 30);
+			tagTranslateLabel = new AJLabel("标签汉化：", labelColor, 400, 110, 100, 30);
+			tagTranslateBox = new JCheckBox("", setting.isTagsTranslate());
+			tagTranslateBox.setBounds(460, 110, 30, 30);
+			
+			maxThreadLabel = new AJLabel("最多开启任务数：", labelColor, 25, 150, 100, 30);
+			maxThreadField = new AJTextField(setting.getMaxThread() + "", "", 125, 150, 60, 30);
+			/*loginUrlLabel = new AJLabel("登录地址：", labelColor, 25, 150, 100, 30);
+			loginUrlField = new AJTextField(setting.getLoginUrl(), "", 125, 150, 360, 30);*/
+			cookieLabel = new AJLabel("Cookie：", labelColor, 25, 190, 100, 30);
+			cookieLabel.setToolTipText("用于用户认证");
 			cookieArea = new AJTextArea();
 			cookieArea.setText(setting.getCookieInfo());
-			cookieArea.setBounds(125, 190, 360, 200);
+			cookieArea.setBounds(125, 190, 360, 150);
 			cookieArea.setLineWrap(true);
+			cookieArea.setEditable(true);
 			cookieArea.setBorder(BorderFactory.createEtchedBorder());
-			cookieButton = new AJButton("登陆", "", "", new OperaBtnMouseListener(mainWindow, MouseAction.CLICK, new IListenerTask() {
+			
+			/*cookieButton = new AJButton("登陆", "", "", new OperaBtnMouseListener(mainWindow, MouseAction.CLICK, new IListenerTask() {
 				public void doWork(Window window, MouseEvent e) {
 					EgDownloaderWindow mainWindow = (EgDownloaderWindow)window;
 					SettingWindow settingWindow = (SettingWindow) mainWindow.settingWindow;
@@ -212,19 +231,20 @@ public class SettingWindow extends JFrame{
 						settingWindow.loginWindow.setVisible(true);
 					}
 				}
-			}), 500, 250, 60, 30);
+			}), 500, 250, 60, 30);*/
 			JButton resumeButton = new AJButton("还原", "", "", new OperaBtnMouseListener(mainWindow, MouseAction.CLICK, new IListenerTask() {
 				public void doWork(Window window, MouseEvent e) {
 					EgDownloaderWindow mainWindow = (EgDownloaderWindow)window;
 					SettingWindow settingWindow = (SettingWindow) mainWindow.settingWindow;
 					settingWindow.cookieArea.setText(new Setting().getCookieInfo());
 				}
-			}), 500, 290, 60, 30);
+			}), 500, 250, 60, 30);
 		    addComponentsJpanel(basicPanel, saveDirLabel, saveDirField, browseDirButton, openDirButton,
-				saveAsNameLabel, saveAsNameBox, autoDownloadLabel, autoDownloadBox, downloadOriginalLabel,
-				downloadOriginalBox, maxThreadLabel, maxThreadField,
-				loginUrlLabel, loginUrlField, cookieLabel, cookieArea,
-				cookieButton, resumeButton);
+				saveAsNameLabel, saveAsNameBox, tagTranslateLabel, tagTranslateBox, autoDownloadLabel, autoDownloadBox, downloadOriginalLabel,
+				downloadOriginalBox, showAsSubnameLabel, showAsSubnameBox, maxThreadLabel, maxThreadField,
+				saveDirAsSubnameLabel,saveDirAsSubnameBox,
+				/*loginUrlLabel, loginUrlField,*/ cookieLabel, cookieArea,
+				/*cookieButton, */resumeButton);
 		    
 			/*脚本设置*/
 			scriptPanel = new JPanel();
@@ -246,7 +266,7 @@ public class SettingWindow extends JFrame{
 					try {
 						String path = "script";
 						File f = new File(path);
-						FileUtil.ifNotExistsThenCreate(f);
+						FileUtil2.ifNotExistsThenCreate(f);
 						Desktop.getDesktop().open(f);
 					} catch (Exception e1) {
 						e1.printStackTrace();
@@ -262,6 +282,7 @@ public class SettingWindow extends JFrame{
 					String createScriptPath = settingWindow.createJsField.getText();
 					String collectScriptPath = settingWindow.collectJsField.getText();
 					String downloadScriptPath = settingWindow.downloadJsField.getText();
+					String searchScriptPath = settingWindow.searchJsField.getText();
 					
 					if("".equals(createScriptPath.trim()) || "".equals(collectScriptPath.trim())
 							|| "".equals(downloadScriptPath.trim())){
@@ -269,7 +290,7 @@ public class SettingWindow extends JFrame{
 						return;
 					}else{
 						if(testScriptWindow == null){
-							testScriptWindow = new TestScriptWindow(createScriptPath, collectScriptPath, downloadScriptPath, setting);
+							testScriptWindow = new TestScriptWindow(createScriptPath, collectScriptPath, downloadScriptPath, searchScriptPath, setting);
 						}
 						testScriptWindow.setVisible(true);
 					}
@@ -311,21 +332,24 @@ public class SettingWindow extends JFrame{
 			proxyButtonGroup.add(yesRadioButton);
 			proxyTypeButtonGroup = new ButtonGroup();
 			proxyTypeLabel = new AJLabel("代理方式：", labelColor, 25, 70, 100, 30);
-			httpRadioButton = new JRadioButton("HTTP", "http".equals(setting.getProxyType()));
-			httpRadioButton.setBounds(125, 70, 80, 30);
+			httpRadioButton = new JRadioButton("HTTP(S)", "http".equals(setting.getProxyType()));
+			httpRadioButton.setBounds(125, 70, 100, 30);
 			proxyTypeButtonGroup.add(httpRadioButton);
-			/*socksRadioButton = new JRadioButton("SOCKS", "socks".equals(setting.getProxyType()));
+			socksRadioButton = new JRadioButton("SOCKS", "socks".equals(setting.getProxyType()));
 			socksRadioButton.setBounds(230, 70, 80, 30);
-			proxyTypeButtonGroup.add(socksRadioButton);*/
+			proxyTypeButtonGroup.add(socksRadioButton);
+			ieRadioButton = new JRadioButton("使用IE配置", "ie".equals(setting.getProxyType()));
+			ieRadioButton.setBounds(315, 70, 120, 30);
+			proxyTypeButtonGroup.add(ieRadioButton);
 			proxyIpLabel = new AJLabel("服务器：", labelColor, 25, 110, 100, 30);
-			proxyIpField = new AJTextField(setting.getProxyIp(), "", 125, 110, 200, 30);
+			proxyIpField = new AJTextField(setting.getProxyIp(), "", 130, 110, 200, 30);
 			proxyPortLabel = new AJLabel("端口：", labelColor, 350, 110, 100, 30);
 			proxyPortField = new AJTextField(setting.getProxyPort(), "", 405, 110, 80, 30);
 			proxyUsernameLabel = new AJLabel("用户名：", labelColor, 25, 150, 100, 30);
-			proxyUsernameField = new AJTextField(setting.getProxyUsername(), "", 125, 150, 200, 30);
+			proxyUsernameField = new AJTextField(setting.getProxyUsername(), "", 130, 150, 200, 30);
 			proxyPwdLabel = new AJLabel("密码：", labelColor, 25, 190, 100, 30);
 			proxyPwdField = new JPasswordField(setting.getProxyPwd());
-			proxyPwdField.setBounds(125, 190, 200, 30);
+			proxyPwdField.setBounds(130, 190, 200, 30);
 			proxyTestBtn = new AJButton("测试", "", "", new OperaBtnMouseListener(mainWindow, MouseAction.CLICK, new IListenerTask() {
 				public void doWork(Window window, MouseEvent e) {
 					if(testProxyWindow == null){
@@ -343,7 +367,7 @@ public class SettingWindow extends JFrame{
 			//proxyTipLabel =  new AJLabel("提示：测试前请先保存当前配置", Color.BLUE, 200, 230, 300, 30);
 			
 			addComponentsJpanel(proxyPanel, proxyLabel, noRadioButton, yesRadioButton, proxyTypeLabel, proxyIpLabel, httpRadioButton,
-					/*socksRadioButton,*/ proxyIpField, proxyPortLabel, proxyPortField,
+					socksRadioButton/*, ieRadioButton*/, proxyIpField, proxyPortLabel, proxyPortField,
 					proxyUsernameLabel, proxyUsernameField, proxyPwdLabel, proxyPwdField, proxyTestBtn/*, proxyTipLabel*/);
 			
 			settingTabPanel.add("基本配置", basicPanel);
@@ -363,10 +387,13 @@ public class SettingWindow extends JFrame{
 					if(index == 0){
 						String saveDir = settingWindow.saveDirField.getText();
 						String maxThread = settingWindow.maxThreadField.getText();
-						String loginUrl = settingWindow.loginUrlField.getText();
+						/*String loginUrl = settingWindow.loginUrlField.getText();*/
 						boolean saveAsName = settingWindow.saveAsNameBox.getSelectedObjects() == null ? false : true;//是否选择了
 						boolean autoDownload = settingWindow.autoDownloadBox.getSelectedObjects() == null ? false : true;
 						boolean downloadOriginal = settingWindow.downloadOriginalBox.getSelectedObjects() == null ? false : true;
+						boolean saveDirAsSubname = saveDirAsSubnameBox.isSelected();
+						boolean showAsSubname = showAsSubnameBox.isSelected();
+						boolean tagTranslate = tagTranslateBox.isSelected();
 						String cookieInfo = settingWindow.cookieArea.getText();
 						Pattern p = Pattern.compile("[0-9]");
 						if("".equals(saveDir)){
@@ -378,10 +405,10 @@ public class SettingWindow extends JFrame{
 						}else if(!p.matcher(maxThread).matches()){
 							JOptionPane.showMessageDialog(this_, "最多开启任务数必须填写数字,或不能大于10");
 							return;
-						}else if("".equals(loginUrl)){
+						}/*else if("".equals(loginUrl)){
 							JOptionPane.showMessageDialog(this_, "请填写登录地址");
 							return;
-						}else{
+						}*/else{
 							if("".equals(cookieInfo)){
 								int result = JOptionPane.showConfirmDialog(this_, "登陆信息cookie不存在，确认要保存吗？");
 								if(result != JOptionPane.OK_OPTION){//不保存
@@ -392,8 +419,11 @@ public class SettingWindow extends JFrame{
 							setting.setSaveAsName(saveAsName);
 							setting.setAutoDownload(autoDownload);
 							setting.setDownloadOriginal(downloadOriginal);
+							setting.setSaveDirAsSubname(saveDirAsSubname);
+							setting.setShowAsSubname(showAsSubname);
+							setting.setTagsTranslate(tagTranslate);
 							setting.setMaxThread(Integer.parseInt(maxThread));
-							setting.setLoginUrl(loginUrl);
+							/*setting.setLoginUrl(loginUrl);*/
 							setting.setCookieInfo(cookieInfo);
 							mainWindow.settingDbTemplate.update(setting);//保存
 							JOptionPane.showMessageDialog(this_, "保存成功");
@@ -417,9 +447,11 @@ public class SettingWindow extends JFrame{
 					else if(index == 2){
 						boolean useProxy = settingWindow.yesRadioButton.isSelected() ? true : false;
 						String proxyType = "http";
-						/*if(socksRadioButton.isSelected()){
+						if(socksRadioButton.isSelected()){
 							proxyType = "socks";
-						}*/
+						}else if(ieRadioButton.isSelected()){
+							proxyType = "ie";
+						}
 						String proxyIp = settingWindow.proxyIpField.getText();
 						String proxyPort = settingWindow.proxyPortField.getText();
 						String proxyUsername = settingWindow.proxyUsernameField.getText();

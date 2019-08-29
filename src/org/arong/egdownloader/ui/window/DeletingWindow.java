@@ -1,8 +1,6 @@
 package org.arong.egdownloader.ui.window;
 
 import java.awt.Color;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -32,47 +30,11 @@ public class DeletingWindow extends JDialog {
 		this.setLocationRelativeTo(this.mainWindow);
 		this.setBackground(Color.WHITE);
 		
-		//关闭监听，释放窗口资源，否则消耗大量CPU
-		this.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent e) {
-				DeletingWindow window = (DeletingWindow) e.getSource();
-				window.mainWindow.setEnabled(true);
-				window.mainWindow.setVisible(true);
-				window.dispose();
-			}
-			//窗体由激活状态变成非激活状态
-			/*public void windowDeactivated(WindowEvent e) {
-				mainWindow.setVisible(true);
-				mainWindow.setEnabled(true);
-				DeletingWindow window = (DeletingWindow) e.getSource();
-				window.dispose();
-			}*/
-			/*public void windowActivated(WindowEvent e) {
-				mainWindow.setEnabled(false);
-			}*/
-		});
-		
 		dataLabel = new AJLabel("", Color.BLACK, 160, 10, 80, 30);
 		infoLabel = new AJLabel("", Color.BLACK, 10, 50, 380, 30);
 		ComponentUtil.addComponents(getContentPane(), dataLabel, infoLabel);
 	}
 	
-	public void dispose() {
-		mainWindow.setEnabled(true);
-		mainWindow.setVisible(true);
-		super.dispose();
-	}
-	
-	@Override
-	protected void processWindowEvent(WindowEvent e) {
-		//关闭事件
-		if(e.getID() == WindowEvent.WINDOW_CLOSING){
-			//do nothing
-		}else{
-			super.processWindowEvent(e);
-		}
-	}
-
 	public void setData(String data){
 		dataLabel.setText(data);
 	}

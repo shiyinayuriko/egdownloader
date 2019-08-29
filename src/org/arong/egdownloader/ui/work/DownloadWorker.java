@@ -1,26 +1,31 @@
 package org.arong.egdownloader.ui.work;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.swing.JFrame;
 import javax.swing.SwingWorker;
 
 import org.apache.commons.httpclient.ConnectTimeoutException;
+import org.apache.commons.lang.StringUtils;
 import org.arong.egdownloader.model.Picture;
 import org.arong.egdownloader.model.ScriptParser;
+import org.arong.egdownloader.model.ServerException;
 import org.arong.egdownloader.model.Setting;
 import org.arong.egdownloader.model.Task;
 import org.arong.egdownloader.model.TaskStatus;
 import org.arong.egdownloader.spider.WebClient;
 import org.arong.egdownloader.spider.WebClientException;
-import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.table.TaskingTable;
 import org.arong.egdownloader.ui.window.EgDownloaderWindow;
+import org.arong.util.DateUtil;
+import org.arong.util.FileUtil2;
+import org.arong.util.HtmlUtils;
+import org.arong.util.SimpleImageInfo;
 import org.arong.util.Tracker;
 /**
  * 下载线程类，执行耗时的下载任务
@@ -29,11 +34,13 @@ import org.arong.util.Tracker;
  */
 public class DownloadWorker extends SwingWorker<Void, Void>{
 	
-	private JFrame mainWindow;
+	private EgDownloaderWindow mainWindow;
 	private Task task;
 	private Setting setting;
 	private int exceptionNum = 0;
-	public DownloadWorker(Task task, JFrame mainWindow){
+	private InputStream is = null;//当前下载的图片输入流
+	
+	public DownloadWorker(Task task, EgDownloaderWindow mainWindow){
 		this.mainWindow = mainWindow;
 		this.task = task;
 		setting = ((EgDownloaderWindow)mainWindow).setting;
@@ -44,11 +51,11 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 		exceptionNum = 0;
 		//设置任务状态为下载中
 		//task.setStatus(TaskStatus.STARTED);
-		Tracker.println(getClass(), task.getDisplayName() + "(" + task.getStart() + "-" + task.getEnd() + "):开始下载");
+		Tracker.println(getClass(), HtmlUtils.colorHtml(String.format("%s(%s-%s):开始下载", task.getDisplayName(), task.getStart(), task.getEnd()), "#e60"));
 		List<Picture> pics = task.getPictures();
 		
 		Picture pic;
-		InputStream is;
+		is = null;
 		File existNameFs = null;//判断是否有重复的文件名
 		if(pics.size() != 0){
 			int success = 0;//下载完成个数
@@ -57,51 +64,43 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 				pic = pics.get(i);
 				if(pic.getUrl() != null && ! pic.isRunning() && !pic.isCompleted()){
 					requireNum ++;
+					long connectStart = System.currentTimeMillis();
 					try{
 						if(this.isCancelled())//是否暂停
 							return null;
-						if(setting.isOpenScript()){
-							pic.setRealUrl(ScriptParser.getdownloadUrl(task.getName(), pic.getUrl(), setting));
-						}else{
-							//pic.setRealUrl(ParseEngine.getdownloadUrl(task.getName(), pic.getUrl(), setting));
-						}
-						
-						if(pic.getRealUrl() == null){
-							exceptionNum ++;
-							continue;
-						}
-						if(this.isCancelled())//是否暂停
-							return null;
-						if(pic.getRealUrl().contains("exhentai.org")){
-							pic.setRealUrl(WebClient.getRequestUseJavaWithCookie(pic.getRealUrl(), "utf-8", setting.getCookieInfo()));
-							is =  WebClient.getStreamUseJava(pic.getRealUrl());
-						}else{
-							is =  WebClient.getStreamUseJava(pic.getRealUrl());
-						}
-						
-						if(this.isCancelled())//是否暂停
-							return null;
-						if(is == null){
-							pic.setRealUrl(null);
-							Tracker.println(task.getDisplayName() + ":" + pic.getName() + ":图片流无效");
-							exceptionNum ++;
-							continue;
-						}
-						int size = is.available();
-						/*System.out.println(size);
-						if(size < 1000){
-							pic.setRealUrl(null);
-							Tracker.println(task.getDisplayName() + ":" + pic.getName() + ":403");
-							is.close();
-							exceptionNum ++;
-							continue;
-						}else if(size < 1010){
-							pic.setRealUrl(null);
-							Tracker.println(task.getDisplayName() + ":" + pic.getName() + ":509");
-							is.close();
-							exceptionNum ++;
-							continue;
+						//if(setting.isOpenScript()){
+							pic.setRealUrl(ScriptParser.getdownloadUrl(task, pic.getUrl(), setting));
+						/*}else{
+							pic.setRealUrl(ParseEngine.getdownloadUrl(task.getName(), pic.getUrl(), setting));
 						}*/
+						
+						if(StringUtils.isBlank(pic.getRealUrl())){
+							exceptionNum ++;
+							System.out.println(HtmlUtils.redColorHtml(String.format("%s:%s:获取图片下载地址为空", task.getDisplayName(), pic.getName())));
+							continue;
+						}
+						if(this.isCancelled())//是否暂停
+							return null; 
+						Object[] streamAndLength =  null;
+						connectStart = System.currentTimeMillis();
+						if(pic.getRealUrl().contains("hentai.org")){
+							streamAndLength = WebClient.getStreamAndLengthUseJavaWithCookie(pic.getRealUrl(), setting.getCookieInfo(), 10 * 1000);
+						}else{
+							streamAndLength = WebClient.getStreamAndLengthUseJavaWithCookie(pic.getRealUrl(), null);
+						}
+						
+						if(this.isCancelled())//是否暂停
+							return null;
+						if(streamAndLength[0] == null){
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s:%s-%s:图片流无效", task.getDisplayName(), pic.getName(), pic.getRealUrl())));
+							pic.setRealUrl(null);
+							exceptionNum ++;
+							continue;
+						}
+						is = (InputStream) streamAndLength[0];
+						int totalLength = (Integer) streamAndLength[1];
+						
+						int size = is.available();
 						String name = pic.getName();
 						//是否以真实名称保存，是的话则要判断是否重复并处理
 						if(! pic.isSaveAsName()){
@@ -110,24 +109,33 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 							}else{
 								name = pic.getNum() + ".jpg";
 							}
+							existNameFs = new File(String.format("%s%s%s", task.getSaveDir(), File.separator, name));
 						}else{
-							existNameFs = new File(ComponentConst.getSavePathPreffix() + task.getSaveDir() + File.separator + name);
+							existNameFs = new File(String.format("%s%s%s", task.getSaveDir(), File.separator, name));
 							//已存在相同名称的文件
 							while(existNameFs.exists()){
-								name = name.substring(0, name.lastIndexOf(".")) + "_" + name.substring(name.lastIndexOf("."), name.length());
-								existNameFs = new File(ComponentConst.getSavePathPreffix() + task.getSaveDir() + "/" + name);
+								name = String.format("%s_%s", name.substring(0, name.lastIndexOf(".")), name.substring(name.lastIndexOf("."), name.length()));
+								existNameFs = new File(String.format("%s%s%s", task.getSaveDir(), File.separator, name));
 							}
 						}
-						size = task.storeStream(ComponentConst.getSavePathPreffix() + task.getSaveDir(), name, is);//保存到目录
-						if(size < 1000){
+						size = task.storeStream(existNameFs, is);//保存到目录
+						if(pic.getRealUrl().contains("509.gif") || size == 28658 || size == 144 || size == 210 || size == 1009){
 							pic.setRealUrl(null);
-							Tracker.println(task.getDisplayName() + ":" + pic.getName() + ":403");
+							//https://github.com/fffonion/xeHentai/blob/master/xeHentai/filters.py
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s：509", task.getDisplayName(), pic.getName())));
 							delete(existNameFs);
 							exceptionNum ++;
 							continue;
-						}else if(size < 1010){
+						}else if(size == 925 || size < 1000){
 							pic.setRealUrl(null);
-							Tracker.println(task.getDisplayName() + ":" + pic.getName() + ":509");
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s：403", task.getDisplayName(), pic.getName())));
+							delete(existNameFs);
+							exceptionNum ++;
+							continue;
+						}else if(totalLength != size){
+							//获取的流大小与http响应不一致则不算下载成功
+							pic.setRealUrl(null);
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s(已下载%s)：下载不完整(原图大小%s)，耗时%s", task.getDisplayName(), pic.getName(), FileUtil2.showSizeStr((long)size), FileUtil2.showSizeStr((long)totalLength), formatSecend(System.currentTimeMillis() - connectStart))));
 							delete(existNameFs);
 							exceptionNum ++;
 							continue;
@@ -137,50 +145,90 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 							delete(existNameFs);
 							return null;
 						}
-						//Picture [id=41b2c042-7560-422b-a521-e76b56720a77, num=01, name=P213_.jpg, url=http://exhentai.org/s/b0f5fe0e5c/698928-1, realUrl=http://36.233.48.163:8888/h/b0f5fe0e5c10d164456ed3f2000d8b0ef258ab5d-1385766-1279-1850-jpg/keystamp=1401206100-f2b9d0361c/P213_.jpg, size=0, time=null, saveAsName=true, isCompleted=false, isRunning=false]
+						
+						try {
+							SimpleImageInfo sii = new SimpleImageInfo(existNameFs);
+							pic.setPpi(String.format("%sx%s", sii.getWidth(), sii.getHeight()));
+						} catch (Exception e) {
+							e.printStackTrace();
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s：图片无法解析", task.getDisplayName(), pic.getName())));
+							pic.setRealUrl(null);
+							delete(existNameFs);
+							exceptionNum ++;
+							continue;
+						}
+						
+						if(this.isCancelled()){//是否暂停
+							//删除已经下载的文件
+							delete(existNameFs);
+							return null;
+						}
 						pic.setSize(size);//设置图片大小
-						pic.setTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));//下载完成时间
+						pic.setTime(DateUtil.YYYY_MM_DD_HH_MM_SS_FORMAT.format(new Date()));//下载完成时间
 						pic.setCompleted(true);//设置为已下载完成
 						task.setCurrent(task.getCurrent() + 1);//更新task的已下载数
-						//保存数据
-						if(this.isCancelled()){//是否暂停
-							//删除已经下载的文件
-							delete(existNameFs);
-							return null;
+						Tracker.println(DownloadWorker.class, HtmlUtils.greenColorHtml(String.format("%s：%s(%s, %s)：下载完成，耗时%s", task.getDisplayName(), pic.getName(), FileUtil2.showSizeStr((long)size), pic.getPpi(), formatSecend(System.currentTimeMillis() - connectStart))));
+						if(mainWindow.tasks.get(mainWindow.runningTable.selectRowIndex) == task){
+							//切换信息面板tab
+							mainWindow.infoTabbedPane.flushTab(task);
 						}
+						
 						//更新图片信息
 						((EgDownloaderWindow)mainWindow).pictureDbTemplate.update(pic);
+						//更新任务信息
+						((EgDownloaderWindow)mainWindow).taskDbTemplate.update(task);
 						//设置最后下载时间
 						setting.setLastDownloadTime(pic.getTime());
-						Tracker.println(DownloadWorker.class ,task.getDisplayName() + ":" + pic.getName() + "下载完成。");
 						success ++;
 						continue;
 					}catch (SocketTimeoutException e){
+						exceptionNum ++;
 						//碰到异常
-						Tracker.println(task.getDisplayName() + ":" + pic.getName() + "-读取流超时，滞后重试");
+						Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s-读取流超时，滞后重试，耗时%s", task.getDisplayName(), pic.getName(), formatSecend(System.currentTimeMillis() - connectStart))));
 						//删除已经下载的文件
 						delete(existNameFs);
 						//继续下一个
 						continue;
 					}catch (ConnectTimeoutException e){
+						exceptionNum ++;
 						//碰到异常
-						Tracker.println(task.getDisplayName() + ":" + pic.getName() + "-连接超时，滞后重试");
+						Tracker.println(HtmlUtils.redColorHtml(String.format("%s：s%s-连接超时，滞后重试，耗时%s", task.getDisplayName(), pic.getName(), formatSecend(System.currentTimeMillis() - connectStart))));
 						//继续下一个
 						continue;
 					}catch (WebClientException e) {
 						//碰到网络异常，任务暂停
-						Tracker.println("当前无网络，请检查网络设置是否正确");
+						Tracker.println("当前网络异常，请检查网络设置是否正确");
+						task.setStatus(TaskStatus.STOPED);
+						table.setRunningNum(table.getRunningNum() - 1);//当前运行的任务数-1
+						//开始任务等待列表中的第一个任务
+						table.startWaitingTask();
+						e.printStackTrace();
+						return null;
+					}catch (ServerException e) {
+						//碰到服务器异常，任务暂停
+						Tracker.println(HtmlUtils.redColorHtml(String.format("%s，%s停止下载", e.getMessage(), task.getDisplayName())));
 						task.setStatus(TaskStatus.STOPED);
 						table.setRunningNum(table.getRunningNum() - 1);//当前运行的任务数-1
 						//开始任务等待列表中的第一个任务
 						table.startWaitingTask();
 						return null;
 					}catch (Exception e){
-						//碰到异常
-						e.printStackTrace();
-						Tracker.println(task.getDisplayName() + ":" + pic.getName() + e.getLocalizedMessage());
+						exceptionNum ++;
+						//删除已经下载的文件
+						delete(existNameFs);
+						if(e instanceof SocketException && "Socket Closed".equals(e.getMessage())){//主动暂停任务引起的异常，可忽略
+							
+						}else{
+							//碰到异常
+							e.printStackTrace();
+							Tracker.println(HtmlUtils.redColorHtml(String.format("%s：%s===%s", task.getDisplayName(), pic.getName(), e.getMessage())));
+						}
 						//继续下一个
 						continue;
+					}finally{
+						if(is != null){
+							try{is.close();}catch(Exception e){}
+						}
 					}
 				}
 			}
@@ -191,7 +239,7 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 					return null;
 				//是否达到下载区间要求,达到则暂停
 				if(success == requireNum){
-					Tracker.println(DownloadWorker.class, "【" + task.getDisplayName() + ":完成配置区间下载。】");
+					Tracker.println(DownloadWorker.class, HtmlUtils.greenColorHtml(String.format("【%s】：完成配置区间(%s-%s)下载。", task.getDisplayName(), task.getStart(), task.getEnd())));
 					//设置任务状态为已暂停
 					task.setStatus(TaskStatus.STOPED);
 					table.setRunningNum(table.getRunningNum() - 1);//当前运行的任务数-1
@@ -200,7 +248,7 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 					return null;
 				}
 				if(exceptionNum >= requireNum){
-					Tracker.println(DownloadWorker.class, "【" + task.getDisplayName() + ":配额不足或者下载异常，停止下载。】");
+					Tracker.println(DownloadWorker.class, HtmlUtils.redColorHtml(String.format("【%s】：配额不足或者下载异常，停止下载。", task.getDisplayName())));
 					//设置任务状态为已暂停
 					task.setStatus(TaskStatus.STOPED);
 					table.setRunningNum(table.getRunningNum() - 1);//当前运行的任务数-1
@@ -212,8 +260,8 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 			}else{
 				//设置任务状态为已完成
 				task.setStatus(TaskStatus.COMPLETED);
-				Tracker.println(DownloadWorker.class ,"【" + task.getDisplayName() + "已下载完毕。】");
-				task.setCompletedTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+				Tracker.println(DownloadWorker.class ,String.format("==%s==", HtmlUtils.greenColorHtml(String.format("【%s】已下载完毕", task.getDisplayName()))));
+				task.setCompletedTime(DateUtil.YYYY_MM_DD_HH_MM_SS_FORMAT.format(new Date()));
 				//更新任务到文件
 				((EgDownloaderWindow)mainWindow).taskDbTemplate.update(task);
 				table.setRunningNum(table.getRunningNum() - 1);//当前运行的任务数-1
@@ -224,6 +272,15 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 		
 		return null;
 	}
+	
+	protected void done() {
+		if(is != null){
+			//中断正在下载的线程
+			try {is.close();is = null;} catch (IOException e) {e.printStackTrace();}
+		}
+		super.done();
+	}
+
 	private void delete(File existNameFs){
 		//是否以真实名称保存，是的话则要删除下载不完整的文件
 		if(setting.isSaveAsName() && existNameFs != null && existNameFs.exists()){
@@ -233,5 +290,7 @@ public class DownloadWorker extends SwingWorker<Void, Void>{
 	public Task getTask() {
 		return task;
 	}
-	
+	private String formatSecend(long t){
+		return String.format("%s秒", String.format("%.2f", (t / 1000f)));
+	}
 }

@@ -16,6 +16,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 
 import org.arong.egdownloader.model.ScriptParser;
@@ -27,6 +28,7 @@ import org.arong.egdownloader.ui.swing.AJButton;
 import org.arong.egdownloader.ui.swing.AJLabel;
 import org.arong.egdownloader.ui.swing.AJTextArea;
 import org.arong.egdownloader.ui.swing.AJTextField;
+import org.arong.egdownloader.ui.work.CommonSwingWorker;
 import org.arong.egdownloader.ui.work.interfaces.IListenerTask;
 /**
  * 脚本测试窗口
@@ -37,7 +39,7 @@ public class TestScriptWindow extends JDialog{
 
 	private static final long serialVersionUID = 1922141062996395003L;
 	
-	public TestScriptWindow(final String createScript, final String collectScript, final String downloadScript, final Setting setting){
+	public TestScriptWindow(final String createScript, final String collectScript, final String downloadScript, final String searchScript, final Setting setting){
 		this.setTitle("脚本测试");
 		this.setSize(600, 460);
 		this.getContentPane().setLayout(null);
@@ -48,13 +50,16 @@ public class TestScriptWindow extends JDialog{
 		JLabel typeLabel = new AJLabel("输出类型:", Color.BLUE, 10, 55, 60, 30);
 		JLabel crLabel = new AJLabel("任务", Color.BLACK, 100, 55, 25, 30);
 		final JCheckBox createCb = new JCheckBox("", true);
-		createCb.setBounds(125, 55, 30, 30);
-		JLabel clLabel = new AJLabel("图片列表", Color.BLACK, 225, 55, 50, 30);
+		createCb.setBounds(130, 55, 30, 30);
+		JLabel clLabel = new AJLabel("图片列表", Color.BLACK, 165, 55, 70, 30);
 		final JCheckBox collectCb = new JCheckBox("", true);
-		collectCb.setBounds(285, 55, 30, 30);
-		JLabel doLabel = new AJLabel("真实地址", Color.BLACK, 385, 55, 50, 30);
+		collectCb.setBounds(240, 55, 30, 30);
+		JLabel doLabel = new AJLabel("真实地址", Color.BLACK, 280, 55, 70, 30);
 		final JCheckBox downloadCb = new JCheckBox("", true);
-		downloadCb.setBounds(440, 55, 30, 30);
+		downloadCb.setBounds(360, 55, 30, 30);
+		JLabel seLabel = new AJLabel("搜索列表", Color.BLACK, 400, 55, 70, 30);
+		final JCheckBox searchCb = new JCheckBox("", true);
+		searchCb.setBounds(420, 55, 30, 30);
 		final JTextArea resultArea = new AJTextArea();
 		resultArea.setEditable(false);
 		resultArea.setAutoscrolls(true);
@@ -70,25 +75,35 @@ public class TestScriptWindow extends JDialog{
 		
 		final JButton testBtn = new AJButton("测试脚本", "", "", new OperaBtnMouseListener(this, MouseAction.CLICK, new IListenerTask() {
 			public void doWork(Window window, MouseEvent e) {
-				String url = urlField.getText();
+				final String url = urlField.getText();
 				if("".equals(url)){
 					JOptionPane.showMessageDialog(null, "地址不能为空");
 					return;
 				}
-				Setting s = new Setting();
+				final Setting s = new Setting();
 				s.setCreateTaskScriptPath(createScript);
 				s.setCollectPictureScriptPath(collectScript);
 				s.setDownloadScriptPath(downloadScript);
+				s.setSearchScriptPath(searchScript);
 				s.setCookieInfo(setting.getCookieInfo());
 				resultArea.setText("");
-				ScriptParser.testScript(url, resultArea, s, createCb.getSelectedObjects() != null,
-						collectCb.getSelectedObjects() != null, downloadCb.getSelectedObjects() != null);
+				SwingUtilities.invokeLater(new Runnable() {
+					public void run() {
+						new CommonSwingWorker(new Runnable() {
+							public void run() {
+								ScriptParser.testScript(url, resultArea, s, createCb.getSelectedObjects() != null,
+										collectCb.getSelectedObjects() != null, downloadCb.getSelectedObjects() != null, 
+										searchCb.getSelectedObjects() != null);
+							}
+						}).execute();
+					}
+				});
 			}
 		}), 515, 15, 60, 30);
 		
 		
 		ComponentUtil.addComponents(getContentPane(), urlLabel, urlField, testBtn, typeLabel, crLabel, createCb, 
-				clLabel, collectCb, doLabel, downloadCb, consolePane);
+				clLabel, collectCb, doLabel, downloadCb, seLabel, searchCb, consolePane);
 		this.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
 				//关闭后显示主界面

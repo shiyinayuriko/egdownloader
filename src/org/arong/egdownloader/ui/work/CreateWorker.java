@@ -1,27 +1,25 @@
 package org.arong.egdownloader.ui.work;
 
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
 
-import javax.script.ScriptException;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
 
 import org.apache.commons.httpclient.ConnectTimeoutException;
+import org.apache.commons.lang.StringUtils;
 import org.arong.egdownloader.model.ScriptParser;
 import org.arong.egdownloader.model.Setting;
 import org.arong.egdownloader.model.Task;
-import org.arong.egdownloader.spider.SpiderException;
 import org.arong.egdownloader.spider.WebClient;
-import org.arong.egdownloader.spider.WebClientException;
-import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.table.TaskingTable;
 import org.arong.egdownloader.ui.window.CreatingWindow;
 import org.arong.egdownloader.ui.window.EgDownloaderWindow;
 import org.arong.egdownloader.ui.window.form.AddFormDialog;
-import org.arong.util.FileUtil;
+import org.arong.util.FileUtil2;
+import org.arong.util.HtmlUtils;
+import org.arong.util.Tracker;
 /**
  * 新建任务线程类
  * @author 阿荣
@@ -43,7 +41,8 @@ public class CreateWorker extends SwingWorker<Void, Void>{
 		if(((EgDownloaderWindow)mainWindow).taskDbTemplate.exsits("url", task.getUrl())){
 			return null;
 		}
-		EgDownloaderWindow window = (EgDownloaderWindow)mainWindow;
+		final EgDownloaderWindow window = (EgDownloaderWindow)mainWindow;
+		window.creatingWindow.setTitle("任务创建中");
 		window.setEnabled(false);
 		window.setVisible(true);
 		AddFormDialog addFormWindow = ((AddFormDialog) window.addFormWindow);
@@ -62,15 +61,22 @@ public class CreateWorker extends SwingWorker<Void, Void>{
 					JOptionPane.showMessageDialog(null, "收集图片脚本未指定");
 					return null;
 				}
-				task = ScriptParser.buildTaskByJavaScript(task, setting, window.creatingWindow);
+				task = ScriptParser.buildTaskByJavaScript(task, setting, window.creatingWindow, false);
 			}else{
-				task = ScriptParser.buildTaskByJavaScript(task, setting, window.creatingWindow);
+				task = ScriptParser.buildTaskByJavaScript(task, setting, window.creatingWindow, false);
 			}
 			
 			if(task != null){
+				window.creatingWindow.setTitle("正在下载封面");
 				//下载封面
-				is =  WebClient.getStreamUseJavaWithCookie(task.getCoverUrl(), setting.getCookieInfo());
-				FileUtil.storeStream(ComponentConst.getSavePathPreffix() + task.getSaveDir(), "cover.jpg", is);//保存到目录
+				try{
+					is = WebClient.getStreamUseJavaWithCookie(task.getDownloadCoverUrl(setting.isUseCoverReplaceDomain()), setting.getCookieInfo());
+					FileUtil2.storeStream(task.getSaveDir(), "cover.jpg", is);//保存到目录
+				} catch (SocketTimeoutException e){
+					JOptionPane.showMessageDialog(null, "读取封面文件超时，请检查网络后重试");
+				} catch (ConnectTimeoutException e){
+					JOptionPane.showMessageDialog(null, "封面地址连接超时，请检查网络后重试");
+				} 
 				
 				//设置最后创建时间
 				setting.setLastCreateTime(task.getCreateTime());
@@ -79,9 +85,20 @@ public class CreateWorker extends SwingWorker<Void, Void>{
 				//设置历史图片总数
 				setting.setPictureHistoryCount(setting.getPictureHistoryCount() + task.getTotal());
 				//保存到数据库
-				window.pictureDbTemplate.store(task.getPictures());//保存图片信息
+				window.creatingWindow.setTitle("正在保存数据");
 				window.taskDbTemplate.store(task);//保存任务
 				window.settingDbTemplate.update(setting);//保存配置
+				//图片数目大于80则异步存储
+				if(task.getTotal() > 80){
+					new Thread(new Runnable() {
+						public void run() {
+							window.pictureDbTemplate.store(task.getPictures());//保存图片信息
+							Tracker.println(HtmlUtils.greenColorHtml(task.getDisplayName() + "(" + task.getTotal() + ")：图片信息保存完成"));
+						}
+					}).start();
+				}else{
+					window.pictureDbTemplate.store(task.getPictures());//保存图片信息
+				}
 				
 				//保存到内存
 				final TaskingTable taskTable = (TaskingTable)window.runningTable;
@@ -99,22 +116,19 @@ public class CreateWorker extends SwingWorker<Void, Void>{
 					taskTable.startTask(task);
 				}
 				task.setCreateWorker(null);
+				if(window.viewModel == 2){
+					window.taskImagePanel.init(taskTable.getTasks());
+				}
+				if(window.allTagsWindow != null && StringUtils.isNotBlank(task.getTags())){
+					window.allTagsWindow.addTaskTags(task.getTags());
+				}
+				task.flushTagsCount(true);
 			}else{
 				JOptionPane.showMessageDialog(null, "创建异常");
+				throw new RuntimeException("任务获取为空");
 			}
-		} catch (SocketTimeoutException e){
-			JOptionPane.showMessageDialog(null, "读取文件超时，请检查网络后重试");
-		} catch (ConnectTimeoutException e){
-			JOptionPane.showMessageDialog(null, "连接超时，请检查网络后重试");
-		} catch (SpiderException e) {
-			JOptionPane.showMessageDialog(null, e.getMessage());
-		} catch (WebClientException e) {
-			JOptionPane.showMessageDialog(null, e.getMessage());
-		} catch (FileNotFoundException e) {
-			JOptionPane.showMessageDialog(null, e.getMessage());
-		} catch (ScriptException e) {
-			JOptionPane.showMessageDialog(null, e.getMessage());
-		} catch (Throwable e) {
+		}catch (Exception e) {
+			JOptionPane.showMessageDialog(null, "创建异常:" + e.getMessage());
 			e.printStackTrace();
 		}finally{
 			((CreatingWindow)(window.creatingWindow)).reset();

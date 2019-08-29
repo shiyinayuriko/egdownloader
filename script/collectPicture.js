@@ -1,6 +1,6 @@
 var mark = {//
     listSource : ['<div id="gdt">', '<div id="cdiv" class="gm">'],//
-	intercept : ['style="height', "gdtm", "gdtl"],//
+	intercept : ['style="height', "class=\"gdt"],//
 	showUrl : ['"><a href="', '"><img alt='],//
 	name : ['title="', '" src=']//
 };
@@ -47,14 +47,14 @@ function trim(s){
     
 function parse(temp){
 	var newpics = [];
-	var prefix = temp.indexOf(mark.intercept[1]) != -1 ? mark.intercept[1] : mark.intercept[2];//
+	var prefix = mark.intercept[1];//
+	var listBegin = temp.indexOf(mark.listSource[0]);
+	var listEnd = temp.indexOf(mark.listSource[1]);
+	temp = temp.substring(listBegin ? listBegin : 0, listEnd ? listEnd : temp.length);
 	temp = subFromSource(temp, prefix);
 	while(temp.indexOf(mark.intercept[0]) != -1){
 		var picture = {};
-		//
 		picture.url = interceptFromSource(temp, mark.showUrl[0], mark.showUrl[1]);
-		picture.url = picture.url.replace("https", "http");
-		//
 		var s = interceptFromSource(temp, mark.name[0], mark.name[1]);//Page 1: img00001.jpg
 		picture.name = trim(s.split(':')[1]);
 		newpics.push(picture);

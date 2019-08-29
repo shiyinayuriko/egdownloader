@@ -25,6 +25,8 @@ import org.arong.egdownloader.model.TaskList;
 import org.arong.egdownloader.model.TaskStatus;
 import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.CursorManager;
+import org.arong.egdownloader.ui.panel.PicturesInfoPanel;
+import org.arong.egdownloader.ui.panel.TaskTagsPanel;
 import org.arong.egdownloader.ui.window.CoverWindow;
 import org.arong.egdownloader.ui.window.EgDownloaderWindow;
 import org.arong.egdownloader.ui.window.SearchCoverWindow;
@@ -40,37 +42,44 @@ public class TaskingTable extends JTable {
 
 	private static final long serialVersionUID = 8917533573337061263L;
 	private TaskList<Task> tasks;
-	private EgDownloaderWindow mainWindow;
+	private TaskList<Task> hiddentasks;
+	public EgDownloaderWindow mainWindow;
 	private int runningNum = 0;
-	private boolean rebuild;
+	public boolean rebuild;
 	private int sort = 1;//0为名称排序，1为时间排序
-	private List<Task> waitingTasks;//排队等待的任务
+	public List<Task> waitingTasks;//排队等待的任务
 	public static int wordNum = 230;//名称列最多显示字数，会随着窗口大小变化而改变
 	public int currentRowIndex = -1;//用于封面显示
+	public int selectRowIndex = 0;
 	private boolean refresh;//是否应该刷新
 	private Timer timer = new Timer(true); 
 	
-	public void changeModel(EgDownloaderWindow mainWindow){
+	public void changeModel(final EgDownloaderWindow mainWindow){
 		this.setMainWindow(mainWindow);
 		this.tasks = mainWindow.tasks;
+		this.setHiddentasks(mainWindow.tasks);
 		final TaskingTable table = this;
 		this.tasks.addPropertyChangeListener(new PropertyChangeListener() {
 			public void propertyChange(PropertyChangeEvent evt) {
 				table.setRefresh(true);
 			}
 		});
-		for(Task task : this.tasks){
+		for(final Task task : this.tasks){
 			task.addPropertyChangeListener(new PropertyChangeListener() {
 				public void propertyChange(PropertyChangeEvent evt) {
 					table.setRefresh(true);
+					if(mainWindow.taskImagePanel != null){
+						mainWindow.taskImagePanel.flush(task); 
+					}
 				}
 			});
 		}
 		TableModel tableModel = new TaskTableModel(this.tasks);
 		this.setModel(tableModel);//设置数据模型
+		if(this.tasks != null && this.tasks.size() > 0){this.setRowSelectionInterval(0, 0);}
 	}
 	
-	public TaskingTable(int x, int y, int width, int height, TaskList<Task> tasks, EgDownloaderWindow mainWindow){
+	public TaskingTable(int x, int y, int width, int height, TaskList<Task> tasks, final EgDownloaderWindow mainWindow){
 		this.setMainWindow(mainWindow);
 		final TaskingTable table = this;
 		this.tasks = (tasks == null ? new TaskList<Task>() : tasks);
@@ -91,6 +100,7 @@ public class TaskingTable extends JTable {
 		renderer.setHorizontalAlignment(JLabel.CENTER);   
 		this.setDefaultRenderer(Object.class, renderer);//设置渲染器
 		this.getTableHeader().setDefaultRenderer(new TaskTableHeaderRenderer());
+		this.getTableHeader().setSize(this.getTableHeader().getWidth(), 120);
 		//表头监听
 		this.getTableHeader().addMouseListener(new MouseAdapter() {
 			public void mouseClicked(MouseEvent e) {
@@ -239,8 +249,13 @@ public class TaskingTable extends JTable {
 				}
 			}
 			public void mouseClicked(MouseEvent e) {
+				EgDownloaderWindow window = table.getMainWindow();
 				//获取点击的行数
 				int rowIndex = table.rowAtPoint(e.getPoint());
+				selectRowIndex = rowIndex;
+				//切换信息面板tab
+				window.infoTabbedPane.flushTab(window.tasks.get(rowIndex));
+				
 				//左键
 				if(e.getButton() == MouseEvent.BUTTON1){
 					//双击事件
@@ -269,11 +284,10 @@ public class TaskingTable extends JTable {
 						//显示预览图
 						if(column == 0){
 							Task task = table.getTasks().get(rowIndex);
-							String path = ComponentConst.getSavePathPreffix() + task.getSaveDir() + "/cover.jpg";
+							String path = task.getSaveDir() + "/cover.jpg";
 							File cover = new File(path);
 							//不存在封面
 							if(cover == null || !cover.exists()){
-								EgDownloaderWindow window = table.getMainWindow();
 								CoverWindow cw = (CoverWindow) window.coverWindow2;
 								if(cw == null){
 									window.coverWindow2 = new CoverWindow(task, window);
@@ -284,6 +298,7 @@ public class TaskingTable extends JTable {
 								cw.setVisible(true);
 							}
 						}
+						
 					}
 					
 				}
@@ -291,7 +306,8 @@ public class TaskingTable extends JTable {
 				else if(e.getButton() == MouseEvent.BUTTON3){
 					//使之选中
 					table.setRowSelectionInterval(rowIndex, rowIndex);
-					table.getMainWindow().tablePopupMenu.show(table, e.getPoint().x, e.getPoint().y);
+					Task task = table.getTasks().get(rowIndex);
+					table.getMainWindow().tablePopupMenu.show(task, table, e.getPoint().x, e.getPoint().y);
 				}
 			}
 		});
@@ -302,10 +318,13 @@ public class TaskingTable extends JTable {
 				table.setRefresh(true);
 			}
 		});
-		for(Task task : tasks){
+		for(final Task task : tasks){
 			task.addPropertyChangeListener(new PropertyChangeListener() {
 				public void propertyChange(PropertyChangeEvent evt) {
 					table.setRefresh(true);
+					if(mainWindow.taskImagePanel != null){
+						mainWindow.taskImagePanel.flush(task); 
+					}
 				}
 			});
 		}
@@ -321,12 +340,16 @@ public class TaskingTable extends JTable {
 				}
 			}
 		}, 1000, 1000);
+		if(this.tasks != null && this.tasks.size() > 0){this.setRowSelectionInterval(0, 0);}
 	}
-	public void propertyChange(Task task){
+	public void propertyChange(final Task task){
 		final TaskingTable table = this;
 		task.addPropertyChangeListener(new PropertyChangeListener() {
 			public void propertyChange(PropertyChangeEvent evt) {
 				table.setRefresh(true);
+				if(mainWindow.taskImagePanel != null){
+					mainWindow.taskImagePanel.flush(task); 
+				}
 			}
 		});
 	}
@@ -353,16 +376,16 @@ public class TaskingTable extends JTable {
 		if(this.getRunningNum() >= this.mainWindow.setting.getMaxThread()){
 			this.addWaitingTask(task);
 		}else{
-			task.setStatus(TaskStatus.STARTED);
 			//如果是未采集，则先开启采集
-			if(task.getPictures() == null || task.getPictures().size() == 0){
+			if(task.getStatus() == TaskStatus.UNCREATED || (task.getPictures() == null || task.getPictures().size() == 0)){
 				task.setReCreateWorker(new ReCreateWorker(task, this.getMainWindow()));
 				task.getReCreateWorker().execute();
 			}else{
+				task.setStatus(TaskStatus.STARTED);
 				task.setDownloadWorker(new DownloadWorker(task, this.getMainWindow()));
 				task.getDownloadWorker().execute();
+				this.setRunningNum(this.getRunningNum() + 1);
 			}
-			this.setRunningNum(this.getRunningNum() + 1);
 		}
 	}
 	/**
@@ -417,7 +440,7 @@ public class TaskingTable extends JTable {
 		}
 	}
 
-	public List<Task> getTasks() {
+	public TaskList<Task> getTasks() {
 		return tasks;
 	}
 
@@ -460,5 +483,13 @@ public class TaskingTable extends JTable {
 
 	public void setRefresh(boolean refresh) {
 		this.refresh = refresh;
+	}
+
+	public TaskList<Task> getHiddentasks() {
+		return hiddentasks;
+	}
+
+	public void setHiddentasks(TaskList<Task> hiddentasks) {
+		this.hiddentasks = hiddentasks;
 	}
 }

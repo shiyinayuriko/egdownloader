@@ -13,11 +13,12 @@ import javax.swing.JList;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
-import javax.swing.SwingUtilities;
 
+import org.apache.commons.lang.StringUtils;
 import org.arong.egdownloader.db.impl.PictureDom4jDbTemplate;
 import org.arong.egdownloader.db.impl.SettingDom4jDbTemplate;
 import org.arong.egdownloader.db.impl.TaskDom4jDbTemplate;
+import org.arong.egdownloader.model.Task;
 import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.CursorManager;
 import org.arong.egdownloader.ui.IconManager;
@@ -26,7 +27,8 @@ import org.arong.egdownloader.ui.swing.AJPopupMenu;
 import org.arong.egdownloader.ui.window.EgDownloaderWindow;
 import org.arong.egdownloader.ui.window.GroupWindow;
 import org.arong.egdownloader.ui.window.InitWindow;
-import org.arong.util.FileUtil;
+import org.arong.util.FileUtil2;
+import org.arong.util.Tracker;
 /**
  * 任务组列表
  * @author dipoo
@@ -37,14 +39,15 @@ public class GroupList extends JList {
 	private static final long serialVersionUID = -7702879865264332528L;
 	
 	private JPopupMenu popupMenu;
-	private JMenuItem deleteMenu = new AJMenuItem("删除", new Color(0,0,85), IconManager.getIcon("delete"), null);
+	private JMenuItem deleteMenu = new AJMenuItem("删除", new Color(0, 0, 85), IconManager.getIcon("delete"), null);
 	
+	
+	@SuppressWarnings("unchecked")
 	public GroupList(List<File> groups, final GroupWindow window, final EgDownloaderWindow mainWindow){
 		this.setModel(new GroupListModel(groups));
 		//this.setCellRenderer(new GroupListCellReader());
 		this.setCursor(CursorManager.getPointerCursor());
 		this.setForeground(Color.BLUE);
-		
 		this.addMouseListener(new MouseListener() {
 			public void mouseReleased(MouseEvent arg0) {}
 			public void mousePressed(MouseEvent arg0) {}
@@ -86,11 +89,7 @@ public class GroupList extends JList {
 							TaskDom4jDbTemplate.updateDom();
 							PictureDom4jDbTemplate.updateDom();
 						}
-						SwingUtilities.invokeLater(new Runnable() {
-							public void run() {
-								new InitWindow();
-							}
-						});
+						new InitWindow().toFront();
 					}
 				}//右键
 				else if(me.getButton() == MouseEvent.BUTTON3){
@@ -117,6 +116,15 @@ public class GroupList extends JList {
 					}
 					int r = JOptionPane.showConfirmDialog(this_, "删除任务组将会删除已下载的漫画，且不可恢复，您确定要删除任务组：" + name + "吗？");
 					if(r == JOptionPane.OK_OPTION){
+						List<Task> tasks = mainWindow.taskDbTemplate.query("groupname", name);
+						if(tasks.size() > 0){
+							for (Task t : tasks) {
+								Tracker.println("删除任务：[" + (StringUtils.isBlank(t.getSubname()) ? t.getName() : t.getSubname()) + "]所有图片");
+								mainWindow.pictureDbTemplate.delete("tid", t.getId());
+							}
+							Tracker.println("删除任务组：[" + name + "]所有任务");
+							mainWindow.taskDbTemplate.delete("groupname", name);
+						}
 						//如果是在主界面切换的任务组，且选择的任务组不变，则关闭主窗口
 						if(mainWindow != null && name.equals(ComponentConst.groupName)){
 							mainWindow.saveTaskGroupData();
@@ -124,7 +132,7 @@ public class GroupList extends JList {
 						}
 						File file = new File(ComponentConst.ROOT_DATA_PATH + "/" + name);
 						if(file.exists()){
-							FileUtil.deleteFile(file);
+							FileUtil2.deleteFile(file);
 						}
 						File dataFile = new File(ComponentConst.ROOT_DATA_PATH);
 						if(!dataFile.exists()){
@@ -141,11 +149,7 @@ public class GroupList extends JList {
 							SettingDom4jDbTemplate.updateDom();
 							TaskDom4jDbTemplate.updateDom();
 							PictureDom4jDbTemplate.updateDom();
-							SwingUtilities.invokeLater(new Runnable() {
-								public void run() {
-									new InitWindow();
-								}
-							});
+							new InitWindow();
 						}else{
 							File[] files = dataFile.listFiles();
 							List<File> groups = new ArrayList<File>();
@@ -170,11 +174,7 @@ public class GroupList extends JList {
 								SettingDom4jDbTemplate.updateDom();
 								TaskDom4jDbTemplate.updateDom();
 								PictureDom4jDbTemplate.updateDom();
-								SwingUtilities.invokeLater(new Runnable() {
-									public void run() {
-										new InitWindow();
-									}
-								});
+								new InitWindow();
 							}
 						}
 						

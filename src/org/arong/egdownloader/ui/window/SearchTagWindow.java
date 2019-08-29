@@ -45,9 +45,14 @@ import org.arong.egdownloader.ui.swing.AJMenuItem;
 import org.arong.egdownloader.ui.swing.AJPopupMenu;
 import org.arong.egdownloader.ui.swing.AJTextField;
 import org.arong.egdownloader.ui.work.interfaces.IMenuListenerTask;
-import org.arong.util.FileUtil;
+import org.arong.util.FileUtil2;
 import org.jb2011.lnf.beautyeye.ch3_button.BEButtonUI;
-
+/**
+ * 废除
+ * @author Administrator
+ *
+ */
+@Deprecated
 public class SearchTagWindow extends JDialog {
 
 	private static final long serialVersionUID = 682782292634346851L;
@@ -79,7 +84,7 @@ public class SearchTagWindow extends JDialog {
 			tags.load(new FileReader(ComponentConst.TAG_FILE_PATH));
 		} catch (FileNotFoundException e1) {
 			try {
-				FileUtil.storeStr2file("", ComponentConst.ROOT_DATA_PATH, ComponentConst.TAG_FILE_NAME);
+				FileUtil2.storeStr2file("", ComponentConst.ROOT_DATA_PATH, ComponentConst.TAG_FILE_NAME);
 			} catch (IOException e2) {
 				e2.printStackTrace();
 			}
@@ -257,7 +262,9 @@ public class SearchTagWindow extends JDialog {
 					importBtn.setLocation((window.getWidth() - 130) / 2 + 70, addBtn.getY());
 				}
 				separator.setSize(window.getWidth(), 1);
-				addPanel.setLocation((window.getWidth() - addPanel.getWidth()) / 2, (window.getHeight() - addPanel.getHeight()) / 2);
+				if(addPanel != null){
+					addPanel.setLocation((window.getWidth() - addPanel.getWidth()) / 2, (window.getHeight() - addPanel.getHeight()) / 2);
+				}
 				tagPane.setSize(window.getWidth() - 30, window.getHeight() - 80);
 			}
 		});
@@ -289,7 +296,7 @@ public class SearchTagWindow extends JDialog {
 					//左键
 					if(e.getButton() == MouseEvent.BUTTON1){
 						this_.dispose();
-						searchComicWindow.doSearch("tag:"+ tags.getProperty(key));
+						searchComicWindow.doSearch("female:"+ tags.getProperty(key) + "$");
 					}
 					//右键
 					else if(e.getButton() == MouseEvent.BUTTON3){

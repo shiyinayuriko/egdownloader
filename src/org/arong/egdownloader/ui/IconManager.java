@@ -15,6 +15,7 @@ public class IconManager {
 	private static ImageIcon changeImage;
 	private static ImageIcon loadingImage;
 	private static ImageIcon folderImage;
+	private static ImageIcon openpicImage;
 	private static ImageIcon operaImage;
 	
 	private static ImageIcon deleteImage;
@@ -44,6 +45,8 @@ public class IconManager {
 	private static ImageIcon leftImage;
 	private static ImageIcon rightImage;
 	private static ImageIcon zipImage;
+	private static ImageIcon previewImage;
+	private static ImageIcon failImage;
 	
 	private static ImageIcon ehImage;
 	private static ImageIcon tImage;
@@ -74,6 +77,11 @@ public class IconManager {
 				folderImage = new ImageIcon(IconManager.class.getResource(skinPath + ComponentConst.SKIN_ICON.get("folder")));
 			}
 			return folderImage;
+		}else if("openpic".equals(name)){
+			if(openpicImage == null){
+				openpicImage = new ImageIcon(IconManager.class.getResource(skinPath + ComponentConst.SKIN_ICON.get("openpic")));
+			}
+			return openpicImage;
 		}else if("opera".equals(name)){
 			if(operaImage == null){
 				operaImage = new ImageIcon(IconManager.class.getResource(skinPath + ComponentConst.SKIN_ICON.get("opera")));
@@ -229,6 +237,16 @@ public class IconManager {
 				initImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "init.jpg"));
 			}
 			return initImage;
+		}else if("fail".equals(name)){
+			if(failImage == null){
+				failImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "fail.png"));
+			}
+			return failImage;
+		}else if("preview".equals(name)){
+			if(previewImage == null){
+				previewImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "preview.png"));
+			}
+			return previewImage;
 		}else if("left".equals(name)){
 			if(leftImage == null){
 				leftImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "left.png"));
@@ -256,12 +274,12 @@ public class IconManager {
 				tImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "t.png"));
 			}
 			return tImage;
-		}else if("artistcg".equals(name)){
+		}else if("artistcg".equals(name) || "artist cg sets".equals(name) || "artist cg".equals(name)){
 			if(artistcgImage == null){
 				artistcgImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "ARTISTCG.png"));
 			}
 			return artistcgImage;
-		}else if("asianporn".equals(name)){
+		}else if("asianporn".equals(name) || "asian porn".equals(name)){
 			if(asianpornImage == null){
 				asianpornImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "ASIANPORN.png"));
 			}
@@ -276,12 +294,12 @@ public class IconManager {
 				doujinshiImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "DOUJINSHI.png"));
 			}
 			return doujinshiImage;
-		}else if("gamecg".equals(name)){
+		}else if("gamecg".equals(name) || "game cg".equals(name)){
 			if(gamecgImage == null){
 				gamecgImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "GAMECG.png"));
 			}
 			return gamecgImage;
-		}else if("imageset".equals(name)){
+		}else if("imageset".equals(name) || "image sets".equals(name) || "image set".equals(name)){
 			if(imagesetImage == null){
 				imagesetImage = new ImageIcon(IconManager.class.getResource(ComponentConst.ICON_PATH + "IMAGESET.png"));
 			}

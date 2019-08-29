@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -22,11 +23,13 @@ import javax.swing.JTextField;
 
 import org.arong.egdownloader.model.Setting;
 import org.arong.egdownloader.model.Task;
+import org.arong.egdownloader.model.TaskList;
 import org.arong.egdownloader.ui.ComponentUtil;
 import org.arong.egdownloader.ui.IconManager;
 import org.arong.egdownloader.ui.listener.MouseAction;
 import org.arong.egdownloader.ui.listener.OperaBtnMouseListener;
 import org.arong.egdownloader.ui.swing.AJButton;
+import org.arong.egdownloader.ui.swing.AJCheckBox;
 import org.arong.egdownloader.ui.swing.AJComboBox;
 import org.arong.egdownloader.ui.swing.AJLabel;
 import org.arong.egdownloader.ui.swing.AJTextField;
@@ -56,6 +59,8 @@ public class AddFormDialog extends JDialog {
 	private JLabel tagLabel;
 	private JTextField tagField;
 	private JComboBox tagComboBox;
+	private JCheckBox originalCheckBox;
+	private JCheckBox saveDirAsSubnameBox;
 	
 	public JFrame mainWindow;
 	
@@ -83,7 +88,7 @@ public class AddFormDialog extends JDialog {
 		this.mainWindow = mainWindow;
 		this.setTitle("新建任务");
 		this.setIconImage(IconManager.getIcon("add").getImage());
-		this.setSize(480, 250);
+		this.setSize(480, 300);
 		this.setResizable(false);
 		this.setLayout(null);
 		this.setLocationRelativeTo(mainWindow);
@@ -140,14 +145,19 @@ public class AddFormDialog extends JDialog {
 		
 		addTaskBtn = new AJButton("新建", IconManager.getIcon("add"), new OperaBtnMouseListener(this, MouseAction.CLICK, new IListenerTask() {
 			public void doWork(Window addFormDialog, MouseEvent event) {
+				addTaskBtn.setEnabled(false);
 				AddFormDialog this_ = (AddFormDialog)addFormDialog;
 				String url = this_.urlField.getText().trim();
 				String saveDir = this_.saveDirField.getText().trim();
 				String tag = this_.tagField.getText().trim();
+				boolean original = this_.originalCheckBox.isSelected();
+				boolean saveDirAsSubname = this_.saveDirAsSubnameBox.isSelected();
 				if("".equals(url)){
 					JOptionPane.showMessageDialog(this_, "请填写下载地址");
+					addTaskBtn.setEnabled(true);
 				}else if("".equals(saveDir)){
 					JOptionPane.showMessageDialog(this_, "请选择保存路径");
+					addTaskBtn.setEnabled(true);
 				}else{
 					if("".equals(tag)){
 						tag = "一般";
@@ -158,16 +168,11 @@ public class AddFormDialog extends JDialog {
 						if("/".equals(url.substring(url.length() - 1, url.length()))){
 							url = url.substring(0, url.length() - 1);
 						}
-						if(!setting.isHttps() && url.startsWith("https:")){
-							url = url.replace("https:", "http:");
-						}
+						//url = url.replaceAll("exhentai.org", "e-hentai.org");
 						//重复性验证
-						if(! mainWindow.taskDbTemplate.exsits("url", url)){
-							if(addTaskBtn.isEnabled()){
-								addTaskBtn.setEnabled(false);
-							}else{
-								return;
-							}
+						boolean contains = mainWindow.tasks.getTaskUrlMap().containsKey(TaskList.getCacheKey(url));
+						if(!contains){
+							
 							if(((EgDownloaderWindow)this_.mainWindow).creatingWindow == null){
 								((EgDownloaderWindow)this_.mainWindow).creatingWindow = new CreatingWindow(mainWindow);
 							}
@@ -196,23 +201,33 @@ public class AddFormDialog extends JDialog {
 							//开始采集
 							Task task = new Task(url, saveDir);
 							task.setTag(tag);
+							task.setOriginal(original);
+							task.setSaveDirAsSubname(saveDirAsSubname);
 							task.setCreateWorker(new CreateWorker(task, mainWindow));
 							task.getCreateWorker().execute();
 							addTaskBtn.setEnabled(true);
 						}else{
 							JOptionPane.showMessageDialog(this_, "此下载地址已存在");
+							addTaskBtn.setEnabled(true);
 						}
 					}else{
 						JOptionPane.showMessageDialog(this_, "下载地址不合法");
+						addTaskBtn.setEnabled(true);
 					}
 				}
 			}
-		}), (this.getWidth() - 100) / 2, 170, 100, 30);
+		}), (this.getWidth() - 100) / 2, 220, 100, 30);
 		saveDirChooser = new JFileChooser("/");
 		saveDirChooser.setDialogTitle("选择保存目录");//选择框标题
 		saveDirChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);//只能选择目录
+		originalCheckBox = new AJCheckBox("是否下载原图", Color.BLUE, setting.isDownloadOriginal());
+		originalCheckBox.setBounds(60, 170, 200, 30);
+		saveDirAsSubnameBox = new AJCheckBox("以子标题作为目录保存", Color.BLUE, setting.isSaveDirAsSubname());
+		saveDirAsSubnameBox.setBounds(280, 170, 200, 30);
+		
 		ComponentUtil.addComponents(this.getContentPane(), addTaskBtn, urlLabel, urlField, tagLabel, tagField,
-				 saveDirLabel, saveDirField, chooserBtn, tipLabel);
+				 saveDirLabel, saveDirField, chooserBtn, tipLabel, originalCheckBox, saveDirAsSubnameBox);
+		mainWindow.setEnabled(false);
 	}
 	public void emptyField(){
 		urlField.setText("");

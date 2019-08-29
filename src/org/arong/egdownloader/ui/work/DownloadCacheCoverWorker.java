@@ -1,15 +1,18 @@
 package org.arong.egdownloader.ui.work;
 
 import java.io.File;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
 import org.arong.egdownloader.model.SearchTask;
 import org.arong.egdownloader.spider.WebClient;
 import org.arong.egdownloader.ui.ComponentConst;
 import org.arong.egdownloader.ui.window.EgDownloaderWindow;
-import org.arong.util.FileUtil;
+import org.arong.util.FileUtil2;
 /**
  * 搜索漫画缓存封面下载的线程
  * @author dipoo
@@ -18,33 +21,65 @@ import org.arong.util.FileUtil;
 public class DownloadCacheCoverWorker extends SwingWorker<Void, Void>{
 	private List<SearchTask> tasks;
 	private EgDownloaderWindow mainWindow;
+	private int runningCount = 0;
 	public DownloadCacheCoverWorker(List<SearchTask> tasks, EgDownloaderWindow mainWindow){
 		this.mainWindow = mainWindow;
 		this.tasks = tasks;
 	}
 	
 	protected Void doInBackground() throws Exception {
-		SearchTask task;
-		String localPath;
 		File cover;
 		if(tasks != null){
 			for(int i = 0; i < tasks.size(); i ++){
-				task = tasks.get(i);
-				localPath = ComponentConst.CACHE_PATH + "/" + FileUtil.filterDir(task.getUrl());
-				cover = new File(localPath);
+				final SearchTask task = tasks.get(i);
+				cover = new File(task.getCoverCachePath());
 				if(cover == null || !cover.exists()){
-					try{
-						FileUtil.storeStream(ComponentConst.CACHE_PATH, FileUtil.filterDir(task.getUrl()),
-								WebClient.getStreamUseJavaWithCookie(task.getCoverUrl(), mainWindow.setting.getCookieInfo()));
-					}catch(Exception e){
-						//最多下两次
-						try{
-							FileUtil.storeStream(ComponentConst.CACHE_PATH, FileUtil.filterDir(task.getUrl()),
-									WebClient.getStreamUseJavaWithCookie(task.getCoverUrl(), mainWindow.setting.getCookieInfo()));
-						}catch(Exception e1){
-							
+					try {
+						while(runningCount > 3){
+							Thread.sleep(1000);
 						}
-					}
+					} catch (InterruptedException e) {}
+					runningCount ++;
+					SwingUtilities.invokeLater(new Runnable() {
+						public void run() {
+							new CommonSwingWorker(new Runnable() {
+								public void run() {
+									InputStream is = null;
+									try{
+										Object[] streamAndLength = WebClient.getStreamAndLengthUseJavaWithCookie(task.getDownloadCoverUrl(mainWindow.setting.isUseCoverReplaceDomain()), mainWindow.setting.getCookieInfo(), 20 * 1000);
+										task.setCoverLength((Integer) streamAndLength[1]);
+										is = (InputStream)streamAndLength[0];
+										FileUtil2.storeStream(ComponentConst.CACHE_PATH, task.getCoverCacheFileName(), is);
+										runningCount --;
+									}catch(Exception e){
+										try {
+											Thread.sleep(2000);
+										} catch (InterruptedException e1) {}
+										//最多下两次
+										try{
+											Object[] streamAndLength = WebClient.getStreamAndLengthUseJavaWithCookie(task.getDownloadCoverUrl(mainWindow.setting.isUseCoverReplaceDomain()), mainWindow.setting.getCookieInfo(), 20 * 1000);
+											task.setCoverLength((Integer) streamAndLength[1]);
+											is = (InputStream)streamAndLength[0];
+											FileUtil2.storeStream(ComponentConst.CACHE_PATH, task.getCoverCacheFileName(), is);
+										}catch(Exception e1){
+											e1.printStackTrace();
+											task.setCoverDownloadFail(true);
+										}finally{
+											runningCount --;
+											if(is != null){
+												try{is.close();}catch(Exception e1){}
+											}
+										}
+										e.printStackTrace();
+									}finally{
+										if(is != null){
+											try{is.close();}catch(Exception e){}
+										}
+									}
+								}
+							}).execute();
+						}
+					});
 				}
 			}
 		}

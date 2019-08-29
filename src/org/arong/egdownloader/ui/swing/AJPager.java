@@ -6,6 +6,8 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -18,6 +20,8 @@ import org.arong.util.NumberUtil;
 public class AJPager extends JPanel {
 
 	private static final long serialVersionUID = 3076829356987409789L;
+	
+	private Integer total;//数据总数
 	
 	private Integer pageCount;//总页数
 	
@@ -36,6 +40,8 @@ public class AJPager extends JPanel {
 	private Integer maxBound;
 	
 	private Object data;
+	
+	private JComponent[] ext;
 	
 	private ActionListener pageListener;
 	
@@ -98,6 +104,11 @@ public class AJPager extends JPanel {
 			}
 		}
 		this.removeAll();
+		
+		if(total != null){
+			JLabel l = new JLabel(total + "记录/" + pageCount + "页");
+			this.add(l);
+		}
 		
 		JButton fbtn = new AJButton("首页");
 		fbtn.setName("1");
@@ -178,6 +189,12 @@ public class AJPager extends JPanel {
 			}
 		});
 		this.add(pageTf);
+		//添加扩展组件
+		if(ext != null){
+			for(JComponent e : ext){
+				this.add(e);
+			}
+		}
 	}
 	
 	
@@ -238,6 +255,22 @@ public class AJPager extends JPanel {
 
 	public Object getData() {
 		return data;
+	}
+
+	public Integer getTotal() {
+		return total;
+	}
+
+	public void setTotal(Integer total) {
+		this.total = total;
+	}
+
+	public JComponent[] getExt() {
+		return ext;
+	}
+
+	public void setExt(JComponent[] ext) {
+		this.ext = ext;
 	}
 
 }

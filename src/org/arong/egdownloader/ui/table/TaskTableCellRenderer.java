@@ -3,7 +3,6 @@ package org.arong.egdownloader.ui.table;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.math.BigDecimal;
 
 import javax.swing.BorderFactory;
@@ -14,11 +13,15 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 
+import org.apache.commons.lang.StringUtils;
+import org.arong.egdownloader.model.Setting;
 import org.arong.egdownloader.model.Task;
 import org.arong.egdownloader.model.TaskStatus;
 import org.arong.egdownloader.ui.ComponentConst;
+import org.arong.egdownloader.ui.FontConst;
 import org.arong.egdownloader.ui.IconManager;
 import org.arong.egdownloader.ui.swing.AJLabel;
+import org.arong.util.HtmlUtils;
 
 /**
  * 任务表格单元格渲染器
@@ -29,15 +32,15 @@ public class TaskTableCellRenderer extends DefaultTableCellRenderer {
 
 	private static final long serialVersionUID = 3319745427208195393L;
 	
-	private Color fontColor;
-	private Color unstartedColor;
-	private Color startedColor;
-	private Color stopedColor;
-	private Color completedColor;
-	private Color progressBarBg = Color.WHITE;
-	private Color progressBarBorder = new Color(47,110,178);
-	private Font font = new Font("微软雅黑", Font.PLAIN, 11);
-	private Font blodFont = new Font("微软雅黑", Font.BOLD, 11);
+	private static Color fontColor;
+	private static Color unstartedColor;
+	private static Color startedColor;
+	private static Color stopedColor;
+	private static Color waitingColor;
+	private static Color completedColor;
+	private static Color uncreatedColor;
+	private static Color progressBarBg = Color.WHITE;
+	private static Color progressBarBorder = new Color(47,110,178);
 	private Task task;
 
 	public Component getTableCellRendererComponent(JTable table, Object value,
@@ -49,9 +52,10 @@ public class TaskTableCellRenderer extends DefaultTableCellRenderer {
 		}
 		TableColumn tc = table.getColumnModel().getColumn(column);
 		task = ((TaskingTable)table).getTasks().get(row); 
+		Setting setting = ((TaskingTable)table).getMainWindow().setting;
 		if(column == 0){//第一列：图标
 			tc.setPreferredWidth(130);
-			tc.setMaxWidth(150);
+			tc.setMaxWidth(160);
 			JLabel l = new JLabel();
 			
 			if(task.getType() != null){
@@ -70,15 +74,17 @@ public class TaskTableCellRenderer extends DefaultTableCellRenderer {
 			}
 			return l;
 		}else if(column == 1){//第二列：名称
-			tc.setPreferredWidth(560);
+			tc.setPreferredWidth(480);
 			tc.setMaxWidth(1200);
-			if(task.getSubname() !=null && !"".equals(task.getSubname().trim())){
+			String preffix = new StringBuffer("<html>").append(HtmlUtils.colorHtml("[" + task.getShortCreatetime() + "]", "#248FB7")).append((task.isSearched() ? "<b>" + HtmlUtils.redColorHtml("[搜]") + "</b>" : "")).append(("一般".equals(task.getTag().trim()) ? "" : HtmlUtils.colorHtml("[<i>" + task.getTag() + "</i>]", "#248FB7"))).toString();
+			String suffix = (StringUtils.isNotBlank(task.getPostedTime()) ? HtmlUtils.colorHtml("[" + task.getPostedTime() + "]", "#248FB7") : "") + "</html>";
+			if(setting.isShowAsSubname() && task.getSubname() !=null && !"".equals(task.getSubname().trim()) && !"null".equals(task.getSubname().trim())){
 				String subname = task.getSubname().trim();
 				JLabel nameLabel = null;
 				if(subname.length() > 230){
-					nameLabel = new AJLabel("<html><font color=\"#248FB7\">[<i>" + task.getTag() + "</i> ][" + task.getShortCreatetime() + "]</font>" + subname.substring(0, 223) + " ......</html>", fontColor, font, JLabel.LEFT);
+					nameLabel = new AJLabel(preffix + subname.substring(0, 223) + " ......" + suffix, fontColor, isSelected ? FontConst.Microsoft_BOLD_11 : FontConst.Microsoft_PLAIN_11, JLabel.LEFT);
 				}else{
-					nameLabel = new AJLabel("<html><font color=\"#248FB7\">[<i>" + task.getTag() + "</i> ][" + task.getShortCreatetime() + "]</font>" + subname + "</html>", fontColor, font, JLabel.LEFT);
+					nameLabel = new AJLabel(preffix + subname + suffix, fontColor, isSelected ? FontConst.Microsoft_BOLD_11 : FontConst.Microsoft_PLAIN_11, JLabel.LEFT);
 				}
 				if(value != null){
 					nameLabel.setToolTipText(task.getName());//设置鼠标移过提示
@@ -88,33 +94,38 @@ public class TaskTableCellRenderer extends DefaultTableCellRenderer {
 				return nameLabel;
 			}
 			else if(value != null && value.toString().length() > 120){
-				JLabel nameLabel = new AJLabel(value.toString().substring(0, 113) + " ......</html>", fontColor, font, JLabel.LEFT);
-				nameLabel.setToolTipText(task.getName());//设置鼠标移过提示
+				JLabel nameLabel = new AJLabel(preffix + value.toString().substring(0, 113) + suffix, fontColor, isSelected ? FontConst.Microsoft_BOLD_11 : FontConst.Microsoft_PLAIN_11, JLabel.LEFT);
+				if(StringUtils.isNotBlank(task.getSubname()) && !"null".equals(task.getSubname().trim())){
+					nameLabel.setToolTipText(task.getSubname());//设置鼠标移过提示
+				}
 				return nameLabel;
 			}else{
-				JLabel nameLabel = new AJLabel(value.toString(), fontColor, font, JLabel.LEFT);
-				nameLabel.setToolTipText(task.getName());//设置鼠标移过提示
+				JLabel nameLabel = new AJLabel(preffix + value.toString() + suffix, fontColor, isSelected ? FontConst.Microsoft_BOLD_11 : FontConst.Microsoft_PLAIN_11, JLabel.LEFT);
+				if(StringUtils.isNotBlank(task.getSubname()) && !"null".equals(task.getSubname().trim())){
+					nameLabel.setToolTipText(task.getSubname());//设置鼠标移过提示
+				}
 				return nameLabel;
 			}
 		}else if(column == 2){//第三列：图片总数
-			tc.setPreferredWidth(50);
-			tc.setMaxWidth(150);
-			return new AJLabel(value.toString(), fontColor, font, JLabel.LEFT);
+			tc.setPreferredWidth(80);
+			tc.setMaxWidth(120);
+			JLabel l = new AJLabel(String.format("<html>%s</html>", value.toString()), fontColor, FontConst.Microsoft_BOLD_12, JLabel.LEFT);
+			return l;
 		}else if(column == 3){//第三列：语言
-			tc.setPreferredWidth(70);
-			tc.setMaxWidth(150);
-			return new AJLabel(value == null ? "" : value.toString(), fontColor, font, JLabel.LEFT);
+			tc.setPreferredWidth(50);
+			tc.setMaxWidth(120);
+			return new AJLabel(String.format("<html>%s</html>", value == null ? "" : value.toString()), fontColor, FontConst.Microsoft_BOLD_11, JLabel.LEFT);
 		}else if(column == 4){//第四列：进度
 			tc.setPreferredWidth(80);
 			tc.setMaxWidth(150);
 			if(value == null || Integer.parseInt(value.toString()) < 1){
-				return new AJLabel("0(0.0%)", fontColor, blodFont, JLabel.CENTER);
+				return new AJLabel("0(0.0%)", fontColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
 			}
 			JProgressBar bar = new JProgressBar(0, task.getTotal());
 			bar.setBackground(progressBarBg);
 			bar.setString(value.toString() + "(" + getSchedule(value, task.getTotal()) + ")");
 			bar.setStringPainted(true);
-			bar.setFont(blodFont);bar.setPreferredSize(new Dimension(110, 13));
+			bar.setFont(FontConst.Microsoft_BOLD_11);bar.setPreferredSize(new Dimension(110, 13));
 			bar.setForeground(progressBarBorder);
 			bar.setBorder(BorderFactory.createLineBorder(progressBarBorder));
 			bar.setValue(Integer.parseInt(value.toString()));
@@ -124,26 +135,25 @@ public class TaskTableCellRenderer extends DefaultTableCellRenderer {
 			tc.setMaxWidth(200);
 			if(value.toString().equals(TaskStatus.UNSTARTED.getStatus())){
 				if(unstartedColor == null) unstartedColor = new Color(95,57,45);
-				return new AJLabel(value.toString(), unstartedColor, blodFont, JLabel.CENTER);
-			}
-			if(value.toString().equals(TaskStatus.STARTED.getStatus())){
+				return new AJLabel(value.toString(), unstartedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
+			}else if(value.toString().equals(TaskStatus.STARTED.getStatus())){
 				if(startedColor == null) startedColor = new Color(65,146,225);
-				return new AJLabel(task.getDownSpeed().toLowerCase(), startedColor, blodFont, JLabel.CENTER);
-			}
-			if(value.toString().equals(TaskStatus.STOPED.getStatus())){
+				return new AJLabel(task.getDownSpeed().toLowerCase(), startedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
+			}else if(value.toString().equals(TaskStatus.STOPED.getStatus())){
 				if(stopedColor == null) stopedColor = new Color(0,1,89);
-				return new AJLabel(value.toString(), stopedColor, blodFont, JLabel.CENTER);
-			}
-			if(value.toString().equals(TaskStatus.COMPLETED.getStatus())){
+				return new AJLabel(value.toString(), stopedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
+			}else if(value.toString().equals(TaskStatus.COMPLETED.getStatus())){
 				if(completedColor == null) completedColor = new Color(65,145,65);
-				return new AJLabel(value.toString(), completedColor, blodFont, JLabel.CENTER);
-			}
-			if(value.toString().equals(TaskStatus.WAITING.getStatus())){
-				if(startedColor == null) startedColor = new Color(65,145,65);
-				return new AJLabel(value.toString(), startedColor, blodFont, JLabel.CENTER);
+				return new AJLabel(value.toString(), completedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
+			}else if(value.toString().equals(TaskStatus.WAITING.getStatus())){
+				if(waitingColor == null) waitingColor = new Color(210,105,30);
+				return new AJLabel(value.toString(), startedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
+			}else if(value.toString().equals(TaskStatus.UNCREATED.getStatus())){
+				if(uncreatedColor == null) uncreatedColor = new Color(218,165,32);
+				return new AJLabel(value.toString(), uncreatedColor, FontConst.Microsoft_BOLD_11, JLabel.CENTER);
 			}
 		}
-		return new AJLabel(value.toString(), fontColor, font, JLabel.LEFT);
+		return new AJLabel(value.toString(), fontColor, FontConst.Microsoft_PLAIN_11, JLabel.LEFT);
 	}
 	
 	private String getSchedule(Object current, Object total){

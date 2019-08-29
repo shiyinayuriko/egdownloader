@@ -1,5 +1,6 @@
 package org.arong.egdownloader.ui.table;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.table.DefaultTableModel;
@@ -15,10 +16,16 @@ public class PictureTableModel extends DefaultTableModel {
 
 	private static final long serialVersionUID = -4476733049330297521L;
 	
+	private static List<Picture> emptyPictures = new ArrayList<Picture>();
+	
 	private List<Picture> pictures;
 	
 	public PictureTableModel(List<Picture> pictures){
-		this.pictures = pictures;
+		if(pictures == null){
+			this.pictures = emptyPictures;
+		}else{
+			this.pictures = pictures;
+		}
 	}
 
 	public int getColumnCount() {
@@ -32,21 +39,37 @@ public class PictureTableModel extends DefaultTableModel {
 	public int getRowCount() {
 		return pictures == null ? 0 : pictures.size();
 	}
-
+	private static final String COMPLETED_VALUE = "<html><font color='green'><b>已完成</b></font></html>";
+	private static final String UNCOMPLETED_VALUE = "未下载";
 	public Object getValueAt(int row, int column) {
+		Picture pic = pictures.get(row);
 		switch (column) {
 		case 0:
-			return pictures.get(row).getNum();
+			return pic.getNum();
 		case 1:
-			return pictures.get(row).getName();
+			return pic.getName();
 		case 2:
-			return pictures.get(row).getSize();
+			if(!pic.isSaveAsName()){
+				if(pic.getName().indexOf(".") != -1){
+					return pic.getNum() + pic.getName().substring(pic.getName().lastIndexOf("."), pic.getName().length());
+				}else{
+					return pic.getNum() + ".jpg";
+				}
+			}else{
+				return pic.getName();
+			}
 		case 3:
-			return pictures.get(row).isCompleted() ? "完成" : "未下载";
+			return pic.getSize();
 		case 4:
-			return pictures.get(row).getUrl();
+			return pic.getPpi();	
 		case 5:
-			return pictures.get(row).getTime();
+			return pic.isCompleted() ? COMPLETED_VALUE : UNCOMPLETED_VALUE;
+		case 6:
+			return pic.getUrl();
+		case 7:
+			return pic.getTime();
+		case 8:
+			return "";	
 		default:
 			return "";
 		}

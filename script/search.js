@@ -1,15 +1,31 @@
 var mark = {
     separator : [',', '###'],
-	page : ['Showing ', 'of ', '</p><table class="ptt'],
-	listSource : ['Uploader</th></tr>', '<table class="ptb"'],
-	intercept : ['<tr class="gtr', "</td></tr>"],
-	name : ['hide_image_pane', '/a></div><div class=', ')">', '<'],
-	url : ['class="it5"><a href="', '" onmouseover'],
-	coverUrl : ['px"><img src="', '" alt="', '~exhentai.org~', '~'],
-	date : ['white-space:nowrap">', '</td><td class="itd" onmouseover'],
-	type : ['.png" alt="', '" class="ic" />'],
-	btUrl : ['</tr>', "return popUp('", "', 610, 590)"],
-	uploader : ['exhentai.org/uploader', '>', '</a>']
+	page : ['Showing', ' ', ' results</p><div id="dms">'],
+	listSource : ['Uploader</th></tr>', '</tr></table><table '],
+	intercept : ['<td class="gl1c glcat">', "pages</div></td>"],
+	name : ['<div class="glink">', '</div><div><div class="gt"', '</div><div>&nbsp;</div></a>'],
+	url : [')"><a href="', '"><div class="glink">', ",'", "')"],
+	coverUrl : ['" src="', '" /></div>', 'data-src="', '.jpg" />'],
+	date : ['" id="posted_', '/div><div class="ir" style="background-position', '">', '<'],
+	type : ["document.location='https://e", '/div></td><td class="gl2c">', '">', '<'],
+	filenum : ['hentai.org/uploader/', 'pages</div>', '</a></div><div>', ' '],
+	btUrl : ["return popUp('", "', 610, 590)"],
+	uploader : ['hentai.org/uploader', 'pages</div></td>', '>', '<'],
+	tags : ['<div><div class="gt" ', '</div></div></a></td>', 'title="', '">'],
+	rate_position: ['<div class="ir" style="background-position:', ';opacity:'],
+	rate_mapping: {
+		"0px -1px": "5.0",
+		"0px -21px": "4.5",
+		"-16px -1px": "4.0",
+		"-16px -21px": "3.5",
+		"-32px -1px": "3.0",
+		"-32px -21px": "2.5",
+		"-48px -1px": "2.0",
+		"-48px -21px": "1.5",
+		"-64px -1px": "1.0",
+		"-64px -21px": "0.5",
+		"-80px -1px": "0.0"
+	}
 };
 
 function parseJsonArray(array){
@@ -19,13 +35,15 @@ function parseJsonArray(array){
 	for(var i = 0; i < array.length; i ++){
 		s += "{";
 		for(var k in array[i]){
-			s += '"' + k + '":';
-			if(typeof array[i][k] == 'number'){
-				s += array[i][k] + ',';
-			}else if(typeof array[i][k] == 'boolean'){
-				s += array[i][k] + ',';
-			}else{
-				s += '"' + array[i][k] + '",';
+			if(array[i][k]){
+				s += '"' + k + '":';
+				if(typeof array[i][k] == 'number'){
+					s += array[i][k] + ',';
+				}else if(typeof array[i][k] == 'boolean'){
+					s += array[i][k] + ',';
+				}else{
+					s += '"' + array[i][k] + '",';
+				}
 			}
 		}
 		s = s.substr(0, s.length - 1);
@@ -55,7 +73,7 @@ function pageInfo(source){
 	if(count == null){
 		return null;
 	}
-	return count + mark.separator[0] + (parseInt(count) % 25 == 0 ? Math.round(parseInt(count) / 25) : Math.round(parseInt(count) / 25 + 1));
+	return count + mark.separator[0] + (parseInt(count) % 25 == 0 ? parseInt(count / 25) : parseInt(count / 25) + 1);
 }
     
 function parse(source){
@@ -66,25 +84,47 @@ function parse(source){
 		var prefix = mark.intercept[1];
 		var i = 0;
 		while(source.indexOf(mark.intercept[0]) != -1){
+			if(i == 25) break;
 			var task = {};
-			var nameTemp = interceptFromSource(source, mark.name[0], mark.name[1]);
-			task.name = interceptFromSource(nameTemp, mark.name[2], mark.name[3]);
+			task.name = interceptFromSource(source, mark.name[0], mark.name[1]);
+			if(task.name.indexOf(mark.name[2]) != -1){
+				task.name = interceptFromSource(source, mark.name[0], mark.name[2]);
+			}
+			
 			task.url = interceptFromSource(source, mark.url[0], mark.url[1]);
-			task.url = task.url.replace("https", "http");
+			
+			task.rating = mark.rate_mapping[interceptFromSource(source, mark.rate_position[0], mark.rate_position[1])];
 			if(i == 0){
-				task.coverUrl = interceptFromSource(source, mark.coverUrl[0], mark.coverUrl[1]);
-				task.coverUrl = task.coverUrl.replace("https", "http");
+				task.coverUrl = interceptFromSource(source, mark.coverUrl[0], mark.coverUrl[1]);	
 			}else{
-				task.coverUrl = "http://exhentai.org/" + interceptFromSource(source, mark.coverUrl[2], mark.coverUrl[3] + task.name);
+				task.coverUrl = interceptFromSource(source, mark.coverUrl[2], mark.coverUrl[3]) + ".jpg";			
 			}
-			task.date = interceptFromSource(source, mark.date[0], mark.date[1]);
+			if(task.coverUrl){
+				task.coverUrl = task.coverUrl.replace("250.jpg", "l.jpg").replace("https://ehgt.org", "http://ehgt.org");
+			}
+			task.date = interceptFromSource(source, mark.date[0], mark.date[1]).replace("<s>", "").replace("</s>", "");
+			task.date = interceptFromSource(task.date, mark.date[2], mark.date[3]);
 			task.type = interceptFromSource(source, mark.type[0], mark.type[1]);
-			var btUrlTemp = source.substring(0, source.indexOf(mark.btUrl[0]));
-			if(btUrlTemp.indexOf(mark.btUrl[1]) != -1){
-				task.btUrl = interceptFromSource(btUrlTemp, mark.btUrl[1], mark.btUrl[2]).replace("&amp;", "&");
+			task.type = interceptFromSource(task.type, mark.type[2], mark.type[3]);
+			task.filenum = interceptFromSource(source, mark.filenum[0], mark.filenum[1]);
+			task.filenum = interceptFromSource(task.filenum, mark.filenum[2], mark.filenum[3]);
+			var btUrlTemp = interceptFromSource(source, mark.btUrl[0], mark.btUrl[1]);
+			if(btUrlTemp && btUrlTemp != ''){
+				task.btUrl = btUrlTemp.replace("&amp;", "&");
+				if(task.url.indexOf(subFromSource(task.btUrl, "gid=").replace("&t=", "/")) == -1){
+					task.btUrl = null;
+				}
 			}
-			var uploaderTemp = subFromSource(source, mark.uploader[0]);
-			task.uploader = interceptFromSource(uploaderTemp, mark.uploader[1], mark.uploader[2]);
+			task.uploader = interceptFromSource(source, mark.uploader[0], mark.uploader[1]);
+			task.uploader = interceptFromSource(task.uploader, mark.uploader[2], mark.uploader[3]);
+			
+			task.tags = '';
+			var tagstemp = interceptFromSource(source, mark.tags[0], mark.tags[1]);
+			while(tagstemp.indexOf(mark.tags[2]) != -1){
+				task.tags += interceptFromSource(tagstemp, mark.tags[2], mark.tags[3]) + ";";
+				tagstemp = subFromSource(tagstemp, mark.tags[2]);
+			}
+			
 			tasks.push(task);
 			source = subFromSource(source, prefix);
 			i ++;
