@@ -66,6 +66,11 @@ public class InitWindow extends JWindow {
 			if(ComponentConst.osname == null){
 				ComponentConst.osname = "Linux";
 			}
+			//是否为exe4j
+			if(System.getProperties().containsKey("exe4j.launchName")){
+				ComponentConst.runByExe4j = true;
+				ComponentConst.runExe4jLaunchName = System.getProperties().getProperty("exe4j.launchName");
+			}
 			
 			final ImageIcon icon = IconManager.getIcon("init");
 			this.setSize(icon.getIconWidth(), icon.getIconHeight());
@@ -95,6 +100,7 @@ public class InitWindow extends JWindow {
 			textLabel.setForeground(Color.WHITE);
 			this.setVisible(true);
 			this.toFront();
+			this.setAlwaysOnTop(true);
 			textLabel.setText("读取配置数据");
 			//检测数据目录是否存在,不存在则创建一个
 			File data_path = new File(ComponentConst.getXmlDirPath());
